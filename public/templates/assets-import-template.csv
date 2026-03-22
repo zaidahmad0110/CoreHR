@@ -1,0 +1,4 @@
+name,serial_number,asset_type,employee_id,employee_email,assigned_date
+MacBook Pro 14,C02ABC001,Laptop,1,,2026-03-18
+Dell Monitor 27,MON-7788,Monitor,,,
+iPhone 15,IP-554433,Phone,,michael.c@company.com,2026-03-18
