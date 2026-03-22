@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Http\Requests\Api;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreLoanRequest extends FormRequest
+{
+    /**
+     * Determine if the user is authorized to make this request.
+     */
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
+    public function rules(): array
+    {
+        return [
+            'amount' => ['required', 'numeric', 'min:1', 'max:99999999.99'],
+            'purpose' => ['required', 'string', 'max:5000'],
+            'request_date' => ['nullable', 'date'],
+            'installments' => ['required', 'integer', 'min:1', 'max:360'],
+        ];
+    }
+}
