@@ -5,5 +5,8 @@ node_modules
 >>>>>>> 7b49e99c67f7109c0ce556165b211d79718ec702
 /.composer-cache/
 /vendor/
-node_modules/
-.env
+/node_modules/
+/.env
+*.log
+*.zip
+*.sql
