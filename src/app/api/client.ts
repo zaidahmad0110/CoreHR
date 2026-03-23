@@ -1,6 +1,6 @@
 import type { ApiResponse } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://corehr-v1.onrender.com/";
 
 const buildUrl = (path: string) =>
   path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
