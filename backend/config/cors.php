@@ -5,7 +5,7 @@ return [
     'allowed_methods' => ['*'],
     'allowed_origins' => array_values(array_filter(array_map(
         static fn (string $origin): string => trim($origin),
-        explode(',', (string) env('FRONTEND_URL', 'http://localhost:5173'))
+        explode(',', (string) env('FRONTEND_URL', 'http://localhost:5173', 'https://core-hr-v1.vercel.app/'))
     ))),
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
