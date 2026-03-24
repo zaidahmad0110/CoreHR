@@ -12,6 +12,12 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
+# Clear all Laravel caches to ensure fresh routes and config on each deployment
+RUN php artisan cache:clear && \
+    php artisan route:clear && \
+    php artisan config:clear && \
+    php artisan view:clear
+
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache || true
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache || true
 
