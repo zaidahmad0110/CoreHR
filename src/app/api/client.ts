@@ -15,7 +15,8 @@ const getCookieValue = (name: string) => {
     return null;
   }
 
-  return decodeURIComponent(cookie.split("=")[1]);
+  const prefix = `${name}=`;
+  return decodeURIComponent(cookie.slice(prefix.length));
 };
 
 export class ApiError extends Error {
