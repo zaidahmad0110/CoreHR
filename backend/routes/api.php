@@ -20,10 +20,6 @@ use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TrainingController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
-
     Route::get('/public/jobs', [RecruitmentController::class, 'publicJobs']);
     Route::post('/public/jobs/{jobPosting}/apply', [RecruitmentController::class, 'applyToPublicJob']);
 
