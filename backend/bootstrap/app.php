@@ -15,9 +15,6 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-    })
-    ->withMiddleware(function (Middleware $middleware) {
-        $middleware->statefulApi();
         $middleware->redirectGuestsTo('/login');
         $middleware->alias([
             'permission' => EnsureUserPermission::class,
