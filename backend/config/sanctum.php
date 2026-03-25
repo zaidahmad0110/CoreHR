@@ -5,8 +5,6 @@ use Laravel\Sanctum\Sanctum;
 return [
 
     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', implode(',', [
-        'core-hr-v1.vercel.app',
-        'corehr-v1.onrender.com',
         'localhost',
         'localhost:3000',
         'localhost:5173',
