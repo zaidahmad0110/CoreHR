@@ -18,6 +18,9 @@ RUN php artisan cache:clear && \
     php artisan config:clear && \
     php artisan view:clear
 
+# Only run migrations if they haven't been run before
+RUN php artisan migrate --force --step || true
+
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache || true
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache || true
 
