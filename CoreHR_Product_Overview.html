@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreHR - Recruitment Agency Solution</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            line-height: 1.5;
+            background: white;
+        }
+        .page {
+            width: 8.5in;
+            height: 11in;
+            margin: 0 auto;
+            padding: 0.5in;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.3in;
+            border-bottom: 3px solid #0066cc;
+            padding-bottom: 0.2in;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+        .tagline {
+            font-size: 12px;
+            color: #666;
+            margin-top: 0.05in;
+        }
+        .header-right {
+            text-align: right;
+            font-size: 11px;
+        }
+        .header-right p {
+            margin: 4px 0;
+        }
+        h2 {
+            font-size: 16px;
+            color: #0066cc;
+            margin-top: 0.15in;
+            margin-bottom: 0.1in;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.15in;
+            margin: 0.15in 0;
+        }
+        .feature {
+            padding: 0.1in 0.1in;
+            background: #f0f5ff;
+            border-left: 3px solid #0066cc;
+            padding-left: 0.1in;
+        }
+        .feature-title {
+            font-weight: bold;
+            color: #0066cc;
+            font-size: 12px;
+            margin-bottom: 0.05in;
+        }
+        .feature-desc {
+            font-size: 10px;
+            color: #555;
+        }
+        .benefits {
+            background: #e8f2ff;
+            padding: 0.1in;
+            margin: 0.1in 0;
+            border-radius: 4px;
+        }
+        .benefits-title {
+            font-weight: bold;
+            color: #0066cc;
+            font-size: 13px;
+            margin-bottom: 0.08in;
+        }
+        .benefits ul {
+            margin-left: 0.15in;
+            font-size: 10px;
+        }
+        .benefits li {
+            margin-bottom: 0.04in;
+            color: #333;
+        }
+        .pricing-cta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.1in;
+            margin: 0.15in 0;
+        }
+        .pricing-box {
+            background: #fff8e8;
+            padding: 0.1in;
+            border: 2px solid #ffb800;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .pricing-box h3 {
+            font-size: 11px;
+            color: #333;
+            margin-bottom: 0.05in;
+        }
+        .price {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0066cc;
+            margin-bottom: 0.05in;
+        }
+        .price-period {
+            font-size: 9px;
+            color: #666;
+        }
+        .cta-box {
+            background: linear-gradient(135deg, #0066cc, #004499);
+            color: white;
+            padding: 0.12in;
+            text-align: center;
+            border-radius: 4px;
+            margin: 0.15in 0;
+        }
+        .cta-text {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 0.05in;
+        }
+        .cta-link {
+            font-size: 10px;
+            color: #ffeb99;
+            text-decoration: underline;
+        }
+        .footer {
+            font-size: 9px;
+            color: #999;
+            text-align: center;
+            margin-top: 0.2in;
+            padding-top: 0.1in;
+            border-top: 1px solid #ddd;
+        }
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .page {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+                height: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <div class="logo">CoreHR</div>
+                <div class="tagline">Modern HR Platform for Recruitment Agencies</div>
+            </div>
+            <div class="header-right">
+                <p>zaidajamous@outlook.com</p>
+                <p>+962 77 990 0224</p>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <h2>Key Features</h2>
+        <div class="features">
+            <div class="feature">
+                <div class="feature-title">🎯 Candidate Tracking</div>
+                <div class="feature-desc">Organize candidates through recruitment pipeline with status tracking</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">📋 Job Postings</div>
+                <div class="feature-desc">Create, publish, and manage job openings across multiple platforms</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">👥 Team Management</div>
+                <div class="feature-desc">Assign tasks, workflows, and delegate candidate ownership</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">📊 Analytics & Reports</div>
+                <div class="feature-desc">Track recruitment metrics, success rates, and KPIs in real-time</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">📧 Automated Workflows</div>
+                <div class="feature-desc">Email templates, notifications, and automated follow-ups</div>
+            </div>
+            <div class="feature">
+                <div class="feature-title">⚡ Fast Implementation</div>
+                <div class="feature-desc">Get started in minutes. No complex setup required.</div>
+            </div>
+        </div>
+
+        <!-- Why CoreHR -->
+        <div class="benefits">
+            <div class="benefits-title">Why Recruitment Agencies Choose CoreHR</div>
+            <ul>
+                <li><strong>Save 15+ hours/week</strong> on manual candidate management</li>
+                <li><strong>Never miss a follow-up</strong> with automated reminders and tracking</li>
+                <li><strong>Build reports instantly</strong> for clients and stakeholders</li>
+                <li><strong>Collaborate seamlessly</strong> across your team in real-time</li>
+            </ul>
+        </div>
+
+        <!-- Pricing & CTA -->
+        <h2>Pricing</h2>
+        <div class="pricing-cta">
+            <div class="pricing-box">
+                <h3>Standard Plan</h3>
+                <div class="price">$2,250</div>
+                <div class="price-period">/year (2-10 employees)</div>
+                <div style="font-size: 9px; color: #666; margin-top: 0.05in;">10% Introductory Discount</div>
+            </div>
+            <div class="pricing-box">
+                <h3>Referral Partner</h3>
+                <div class="price">7%</div>
+                <div class="price-period">Commission on Referrals</div>
+                <div style="font-size: 9px; color: #666; margin-top: 0.05in;">Earn recurring revenue</div>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <!-- <div class="cta-box">
+            <div class="cta-text">Ready to Transform Your Recruitment Process?</div>
+            <div class="cta-link">Start Your Free 30-Day Trial Today »</div>
+        </div> -->
+
+        <!-- Footer -->
+        <div class="footer">
+            CoreHR © 2026 | All Rights Reserved | Trusted by Recruitment Agencies Worldwide
+        </div>
+    </div>
+</body>
+</html>

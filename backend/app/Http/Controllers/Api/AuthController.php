@@ -124,7 +124,7 @@ class AuthController extends Controller
         $companySetting = CompanySetting::query()->first();
         $employee = Employee::query()
             ->with('department')
-            ->where('user_id', $user->id)
+            ->where('email', $user->email)
             ->first();
         $managedDepartments = Department::query()
             ->select(['id', 'name'])
