@@ -13,7 +13,6 @@ use App\Services\MessagingService;
 use App\Services\UserPrivilegeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -63,19 +62,24 @@ class AuthController extends Controller
             $this->clearTwoFactorChallenge($user);
         }
 
-        Auth::login($user, (bool) ($credentials['remember'] ?? false));
-        $request->session()->regenerate();
+        $tokenName = sprintf('web-%s', now()->format('YmdHis'));
+        $plainTextToken = $user->createToken($tokenName)->plainTextToken;
 
         return response()->json([
-            'data' => $this->serializeUser($request->user()),
+            'data' => [
+                'user' => $this->serializeUser($user),
+                'access_token' => $plainTextToken,
+                'token_type' => 'Bearer',
+            ],
         ]);
     }
 
     public function logout(Request $request): JsonResponse
     {
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        $user = $request->user();
+        if ($user && $user->currentAccessToken()) {
+            $user->currentAccessToken()->delete();
+        }
 
         return response()->json([
             'message' => 'Logged out successfully.',
@@ -84,10 +88,8 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user();
-
         return response()->json([
-            'data' => $user ? $this->serializeUser($user) : null,
+            'data' => $this->serializeUser($request->user()),
         ]);
     }
 

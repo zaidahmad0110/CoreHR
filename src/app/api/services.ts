@@ -1,4 +1,4 @@
-import { apiFileRequest, apiRequest, ensureCsrfCookie } from "./client";
+import { apiFileRequest, apiRequest } from "./client";
 import type {
   AssetsData,
   ExpensesData,
@@ -53,6 +53,12 @@ export interface EmployeeMutationPayload {
   user_password?: string;
 }
 
+export interface AuthLoginSuccess {
+  user: AuthUser;
+  access_token: string;
+  token_type: "Bearer";
+}
+
 const toQueryString = (params: Record<string, string | undefined>) => {
   const searchParams = new URLSearchParams();
 
@@ -68,8 +74,7 @@ const toQueryString = (params: Record<string, string | undefined>) => {
 
 export const authService = {
   async login(payload: { email: string; password: string; remember: boolean; otp_code?: string }) {
-    await ensureCsrfCookie();
-    return apiRequest<AuthUser | AuthTwoFactorChallenge>("/api/login", {
+    return apiRequest<AuthLoginSuccess | AuthTwoFactorChallenge>("/api/login", {
       method: "POST",
       body: payload,
     });

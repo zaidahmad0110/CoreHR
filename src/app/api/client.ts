@@ -1,8 +1,7 @@
 import type { ApiResponse } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-let csrfTokenCache: string | null = null;
-let csrfBootstrapPromise: Promise<void> | null = null;
+const AUTH_TOKEN_STORAGE_KEY = "corehr_auth_token";
 
 const buildUrl = (path: string) =>
   path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
@@ -12,18 +11,16 @@ const looksLikeHtml = (value: string) => {
   return trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html") || trimmed.startsWith("<");
 };
 
-const getCookieValue = (name: string) => {
-  const cookie = document.cookie
-    .split(";")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${name}=`));
-
-  if (!cookie) {
-    return null;
-  }
-
-  const prefix = `${name}=`;
-  return decodeURIComponent(cookie.slice(prefix.length));
+export const authTokenStore = {
+  get() {
+    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  },
+  set(token: string) {
+    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  },
+  clear() {
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  },
 };
 
 export class ApiError extends Error {
@@ -34,60 +31,6 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
-}
-
-export async function ensureCsrfCookie() {
-  if (!csrfBootstrapPromise) {
-    csrfBootstrapPromise = (async () => {
-      const response = await fetch(buildUrl("/sanctum/csrf-cookie"), {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new ApiError(
-          "Unable to initialize CSRF cookie. Check backend URL, CORS, and Sanctum settings.",
-          response.status,
-        );
-      }
-
-      const cookieToken = getCookieValue("XSRF-TOKEN");
-      if (cookieToken) {
-        csrfTokenCache = cookieToken;
-        return;
-      }
-
-      const tokenResponse = await fetch(buildUrl("/api/csrf-token"), {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!tokenResponse.ok) {
-        throw new ApiError("Unable to load CSRF token from backend.", tokenResponse.status);
-      }
-
-      const tokenPayload = (await tokenResponse.json()) as ApiResponse<{ csrf_token: string }>;
-      const fallbackToken = tokenPayload?.data?.csrf_token ?? null;
-
-      if (!fallbackToken) {
-        throw new ApiError("Backend did not return a valid CSRF token.", tokenResponse.status);
-      }
-
-      csrfTokenCache = fallbackToken;
-    })().finally(() => {
-      csrfBootstrapPromise = null;
-    });
-  }
-
-  await csrfBootstrapPromise;
 }
 
 interface RequestOptions {
@@ -121,7 +64,7 @@ const parseFileNameFromDisposition = (disposition: string | null) => {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const method = options.method ?? "GET";
-  let csrfToken = getCookieValue("XSRF-TOKEN") ?? csrfTokenCache;
+  const token = authTokenStore.get();
 
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -133,37 +76,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     headers["Content-Type"] = "application/json";
   }
 
-  if (method !== "GET" && !csrfToken) {
-    await ensureCsrfCookie();
-    csrfToken = getCookieValue("XSRF-TOKEN") ?? csrfTokenCache;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
-  if (csrfToken && method !== "GET") {
-    headers["X-XSRF-TOKEN"] = csrfToken;
-  }
-  const requestBody = options.body
-    ? isFormData
-      ? options.body
-      : JSON.stringify(options.body)
-    : undefined;
-
-  const doRequest = (requestHeaders: Record<string, string>) =>
-    fetch(buildUrl(path), {
-      method,
-      credentials: "include",
-      headers: requestHeaders,
-      body: requestBody,
-    });
-
-  let response = await doRequest(headers);
-  if (response.status === 419 && method !== "GET") {
-    await ensureCsrfCookie();
-    const refreshedToken = getCookieValue("XSRF-TOKEN") ?? csrfTokenCache;
-    if (refreshedToken) {
-      headers["X-XSRF-TOKEN"] = refreshedToken;
-      response = await doRequest(headers);
-    }
-  }
+  const response = await fetch(buildUrl(path), {
+    method,
+    credentials: "omit",
+    headers,
+    body: options.body
+      ? isFormData
+        ? options.body
+        : JSON.stringify(options.body)
+      : undefined,
+  });
 
   const text = await response.text();
   let parsed: ApiResponse<T> | { message?: string } | null = null;
@@ -200,12 +126,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export async function apiFileRequest(path: string): Promise<ApiFileResponse> {
+  const token = authTokenStore.get();
+
+  const headers: Record<string, string> = {
+    Accept:
+      "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(buildUrl(path), {
     method: "GET",
-    credentials: "include",
-    headers: {
-      Accept: "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,application/json",
-    },
+    credentials: "omit",
+    headers,
   });
 
   if (!response.ok) {

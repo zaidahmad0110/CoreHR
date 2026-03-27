@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { authTokenStore } from "../api/client";
 import { authService } from "../api/services";
 import type { AuthUser } from "../api/types";
 
@@ -23,10 +24,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
+    const token = authTokenStore.get();
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
     try {
       const me = await authService.me();
       setUser(me);
     } catch {
+      authTokenStore.clear();
       setUser(null);
     }
   };
@@ -56,7 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    setUser(loggedInUser);
+    authTokenStore.set(loggedInUser.access_token);
+    setUser(loggedInUser.user);
 
     return {
       twoFactorRequired: false,
@@ -64,7 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch {
+      // Local sign-out should always complete even if server token is already invalid.
+    } finally {
+      authTokenStore.clear();
+    }
+
     setUser(null);
   };
 
