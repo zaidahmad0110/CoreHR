@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/me', [AuthController::class, 'me']);
 Route::get('/csrf-token', function (Request $request) {
     $request->session()->regenerateToken();
 
@@ -38,7 +39,6 @@ Route::post('/public/jobs/{jobPosting}/apply', [RecruitmentController::class, 'a
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/me', [AuthController::class, 'me']);
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::patch('/auth/two-factor', [AuthController::class, 'updateTwoFactor']);
     Route::get('/privileges/me', [PrivilegeController::class, 'me']);

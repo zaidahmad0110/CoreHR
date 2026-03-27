@@ -84,8 +84,10 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         return response()->json([
-            'data' => $this->serializeUser($request->user()),
+            'data' => $user ? $this->serializeUser($user) : null,
         ]);
     }
 
