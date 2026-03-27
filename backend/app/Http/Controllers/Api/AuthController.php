@@ -11,9 +11,11 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\MessagingService;
 use App\Services\UserPrivilegeService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,8 +64,20 @@ class AuthController extends Controller
             $this->clearTwoFactorChallenge($user);
         }
 
-        $tokenName = sprintf('web-%s', now()->format('YmdHis'));
-        $plainTextToken = $user->createToken($tokenName)->plainTextToken;
+        try {
+            $tokenName = sprintf('web-%s', now()->format('YmdHis'));
+            $plainTextToken = $user->createToken($tokenName)->plainTextToken;
+        } catch (QueryException $exception) {
+            Log::error('Failed to create Sanctum access token.', [
+                'email' => $user->email,
+                'sql_state' => $exception->getCode(),
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Authentication token storage is not ready. Please run database migrations on the server.',
+            ], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
 
         return response()->json([
             'data' => [
