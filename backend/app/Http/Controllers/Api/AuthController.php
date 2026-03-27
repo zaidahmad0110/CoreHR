@@ -30,89 +30,75 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->validated();
-        $user = User::query()->where('email', $credentials['email'])->first();
+        try {
+            $credentials = $request->validated();
+            $user = User::query()->where('email', $credentials['email'])->first();
 
-        if (! $user || ! Hash::check($credentials['password'], (string) $user->password)) {
-            return response()->json([
-                'message' => 'Invalid email or password.',
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        if ((bool) $user->two_factor_enabled) {
-            $otpCode = trim((string) ($credentials['otp_code'] ?? ''));
-
-            if ($otpCode === '') {
-                $this->issueTwoFactorCode($user);
-
+            if (! $user || ! Hash::check($credentials['password'], (string) $user->password)) {
                 return response()->json([
-                    'message' => 'A verification code was sent to your email.',
-                    'data' => [
-                        'two_factor_required' => true,
-                        'delivery_channel' => 'email',
-                        'email_hint' => $this->maskEmail($user->email),
-                        'expires_in_seconds' => 600,
-                    ],
-                ], Response::HTTP_ACCEPTED);
-            }
-
-            if (! $this->isValidTwoFactorCode($user, $otpCode)) {
-                return response()->json([
-                    'message' => 'Invalid or expired verification code.',
+                    'message' => 'Invalid email or password.',
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
-            $this->clearTwoFactorChallenge($user);
-        }
+            if ((bool) $user->two_factor_enabled) {
+                $otpCode = trim((string) ($credentials['otp_code'] ?? ''));
 
-        try {
+                if ($otpCode === '') {
+                    $this->issueTwoFactorCode($user);
+
+                    return response()->json([
+                        'message' => 'A verification code was sent to your email.',
+                        'data' => [
+                            'two_factor_required' => true,
+                            'delivery_channel' => 'email',
+                            'email_hint' => $this->maskEmail($user->email),
+                            'expires_in_seconds' => 600,
+                        ],
+                    ], Response::HTTP_ACCEPTED);
+                }
+
+                if (! $this->isValidTwoFactorCode($user, $otpCode)) {
+                    return response()->json([
+                        'message' => 'Invalid or expired verification code.',
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                $this->clearTwoFactorChallenge($user);
+            }
+
             $tokenName = sprintf('web-%s', now()->format('YmdHis'));
             $plainTextToken = $user->createToken($tokenName)->plainTextToken;
-        } catch (QueryException $exception) {
-            Log::error('Failed to create Sanctum access token.', [
-                'email' => $user->email,
-                'sql_state' => $exception->getCode(),
-                'error' => $exception->getMessage(),
-            ]);
-
-            return response()->json([
-                'message' => 'Authentication token storage is not ready. Please run database migrations on the server.',
-            ], Response::HTTP_SERVICE_UNAVAILABLE);
-        }
-
-        try {
             $serializedUser = $this->serializeUser($user);
+
+            return response()->json([
+                'data' => [
+                    'user' => $serializedUser,
+                    'access_token' => $plainTextToken,
+                    'token_type' => 'Bearer',
+                ],
+            ]);
         } catch (QueryException $exception) {
-            Log::error('Failed to serialize authenticated user due to database schema error.', [
-                'email' => $user->email,
+            Log::error('Login failed due to database error.', [
+                'email' => $request->input('email'),
                 'sql_state' => $exception->getCode(),
                 'error' => $exception->getMessage(),
             ]);
 
             return response()->json([
-                'message' => 'Authentication succeeded, but user profile data could not be loaded. Please run database migrations on the server.',
+                'message' => 'Authentication failed because the database is not ready. Please run migrations and verify DB connection on the server.',
             ], Response::HTTP_SERVICE_UNAVAILABLE);
         } catch (Throwable $exception) {
-            Log::error('Failed to serialize authenticated user.', [
-                'email' => $user->email,
+            Log::error('Unexpected login failure.', [
+                'email' => $request->input('email'),
                 'error' => $exception->getMessage(),
                 'trace' => $exception->getTraceAsString(),
             ]);
 
             return response()->json([
-                'message' => 'Authentication succeeded, but profile loading failed due to a server error.',
+                'message' => 'Unexpected server error during login. Please check application logs.',
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        return response()->json([
-            'data' => [
-                'user' => $serializedUser,
-                'access_token' => $plainTextToken,
-                'token_type' => 'Bearer',
-            ],
-        ]);
     }
-
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
