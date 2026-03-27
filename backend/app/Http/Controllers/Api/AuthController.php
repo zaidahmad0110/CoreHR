@@ -244,6 +244,40 @@ class AuthController extends Controller
         return Hash::check($code, (string) $user->two_factor_code_hash);
     }
 
+    private function validateAndUpgradePassword(User $user, string $plainPassword): bool
+    {
+        $storedPassword = (string) $user->password;
+
+        try {
+            $isValid = Hash::check($plainPassword, $storedPassword);
+        } catch (RuntimeException) {
+            $passwordInfo = password_get_info($storedPassword);
+            $isKnownPhpHash = ($passwordInfo['algo'] ?? null) !== null && ($passwordInfo['algo'] ?? 0) !== 0;
+
+            if ($isKnownPhpHash) {
+                $isValid = password_verify($plainPassword, $storedPassword);
+            } else {
+                $isValid = hash_equals($storedPassword, $plainPassword);
+            }
+
+            if ($isValid) {
+                $user->forceFill([
+                    'password' => $plainPassword,
+                ])->save();
+            }
+
+            return $isValid;
+        }
+
+        if ($isValid && Hash::needsRehash($storedPassword)) {
+            $user->forceFill([
+                'password' => $plainPassword,
+            ])->save();
+        }
+
+        return $isValid;
+    }
+
     private function clearTwoFactorChallenge(User $user): void
     {
         $user->forceFill([
