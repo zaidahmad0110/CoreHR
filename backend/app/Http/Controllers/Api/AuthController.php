@@ -85,7 +85,8 @@ class AuthController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Authentication failed because the database is not ready. Please run migrations and verify DB connection on the server.',
+                'error_type' => $exception::class,
+                'error_detail' => $exception->getMessage(),
             ], Response::HTTP_SERVICE_UNAVAILABLE);
         } catch (Throwable $exception) {
             Log::error('Unexpected login failure.', [
@@ -95,7 +96,8 @@ class AuthController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Unexpected server error during login. Please check application logs.',
+                'error_type' => $exception::class,
+                'error_detail' => $exception->getMessage(),
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
