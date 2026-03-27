@@ -42,6 +42,7 @@ export async function ensureCsrfCookie() {
       const response = await fetch(buildUrl("/sanctum/csrf-cookie"), {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
         headers: {
           Accept: "application/json",
         },
@@ -63,6 +64,7 @@ export async function ensureCsrfCookie() {
       const tokenResponse = await fetch(buildUrl("/api/csrf-token"), {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
         headers: {
           Accept: "application/json",
         },
