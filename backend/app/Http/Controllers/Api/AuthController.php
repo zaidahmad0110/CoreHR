@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -34,7 +35,7 @@ class AuthController extends Controller
             $credentials = $request->validated();
             $user = User::query()->where('email', $credentials['email'])->first();
 
-            if (! $user || ! Hash::check($credentials['password'], (string) $user->password)) {
+            if (! $user || ! $this->validateAndUpgradePassword($user, (string) $credentials['password'])) {
                 return response()->json([
                     'message' => 'Invalid email or password.',
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
