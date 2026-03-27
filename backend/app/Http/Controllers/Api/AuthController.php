@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -79,9 +80,33 @@ class AuthController extends Controller
             ], Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
+        try {
+            $serializedUser = $this->serializeUser($user);
+        } catch (QueryException $exception) {
+            Log::error('Failed to serialize authenticated user due to database schema error.', [
+                'email' => $user->email,
+                'sql_state' => $exception->getCode(),
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Authentication succeeded, but user profile data could not be loaded. Please run database migrations on the server.',
+            ], Response::HTTP_SERVICE_UNAVAILABLE);
+        } catch (Throwable $exception) {
+            Log::error('Failed to serialize authenticated user.', [
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => 'Authentication succeeded, but profile loading failed due to a server error.',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
         return response()->json([
             'data' => [
-                'user' => $this->serializeUser($user),
+                'user' => $serializedUser,
                 'access_token' => $plainTextToken,
                 'token_type' => 'Bearer',
             ],
