@@ -5,6 +5,11 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000
 const buildUrl = (path: string) =>
   path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
+const looksLikeHtml = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html") || trimmed.startsWith("<");
+};
+
 const getCookieValue = (name: string) => {
   const cookie = document.cookie
     .split(";")
@@ -30,10 +35,18 @@ export class ApiError extends Error {
 }
 
 export async function ensureCsrfCookie() {
-  await fetch(buildUrl("/sanctum/csrf-cookie"), {
+  const response = await fetch(buildUrl("/sanctum/csrf-cookie"), {
     method: "GET",
     credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
   });
+
+  if (!response.ok) {
+    throw new ApiError("Unable to initialize CSRF cookie. Check backend URL, CORS, and Sanctum settings.", response.status);
+  }
 }
 
 interface RequestOptions {
@@ -71,6 +84,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   const headers: Record<string, string> = {
     Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
   };
 
   const isFormData = options.body instanceof FormData;
@@ -95,7 +109,25 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   const text = await response.text();
-  const parsed = text ? (JSON.parse(text) as ApiResponse<T> | { message?: string }) : null;
+  let parsed: ApiResponse<T> | { message?: string } | null = null;
+
+  if (text) {
+    if (looksLikeHtml(text)) {
+      throw new ApiError(
+        `API returned HTML instead of JSON for ${buildUrl(path)}. Check VITE_API_BASE_URL, deployment rewrites, and backend availability.`,
+        response.status || 500,
+      );
+    }
+
+    try {
+      parsed = JSON.parse(text) as ApiResponse<T> | { message?: string };
+    } catch {
+      throw new ApiError(
+        `API returned a non-JSON response for ${buildUrl(path)}. Check the deployed backend endpoint and logs.`,
+        response.status || 500,
+      );
+    }
+  }
 
   if (!response.ok) {
     const message =
