@@ -18,9 +18,17 @@ use App\Http\Controllers\Api\PrivilegeController;
 use App\Http\Controllers\Api\RecruitmentController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TrainingController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/csrf-token', function (Request $request) {
+    return response()->json([
+        'data' => [
+            'csrf_token' => csrf_token(),
+        ],
+    ]);
+});
 Route::get('/public/jobs', [RecruitmentController::class, 'publicJobs']);
 Route::post('/public/jobs/{jobPosting}/apply', [RecruitmentController::class, 'applyToPublicJob']);
 
