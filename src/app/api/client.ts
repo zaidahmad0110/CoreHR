@@ -40,7 +40,6 @@ export async function ensureCsrfCookie() {
     credentials: "include",
     headers: {
       Accept: "application/json",
-      "X-Requested-With": "XMLHttpRequest",
     },
   });
 
@@ -84,7 +83,6 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   const headers: Record<string, string> = {
     Accept: "application/json",
-    "X-Requested-With": "XMLHttpRequest",
   };
 
   const isFormData = options.body instanceof FormData;
