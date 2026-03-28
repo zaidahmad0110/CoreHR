@@ -110,6 +110,7 @@ export function Settings() {
   const { refreshUser } = useAuth();
   const { setLanguage } = useI18n();
   const { data, loading, error, refetch } = useApiQuery(() => settingsService.getSettings(), []);
+  const smtpUnavailableInProduction = import.meta.env.PROD;
   const [companyForm, setCompanyForm] = useState<CompanyFormState>(defaultCompanyFormState);
   const [notificationForm, setNotificationForm] = useState<SettingsData["notifications"]>(
     defaultNotificationPreferences,
@@ -530,6 +531,11 @@ export function Settings() {
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900">Email (SMTP)</h3>
+                {smtpUnavailableInProduction && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    SMTP email delivery is not working in production mode on the current hosting environment.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="mail-mailer">Mailer</Label>
