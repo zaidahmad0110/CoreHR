@@ -80,16 +80,25 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(buildUrl(path), {
-    method,
-    credentials: "omit",
-    headers,
-    body: options.body
-      ? isFormData
-        ? options.body
-        : JSON.stringify(options.body)
-      : undefined,
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(buildUrl(path), {
+      method,
+      credentials: "omit",
+      headers,
+      body: options.body
+        ? isFormData
+          ? options.body
+          : JSON.stringify(options.body)
+        : undefined,
+    });
+  } catch {
+    throw new ApiError(
+      `Unable to reach ${buildUrl(path)}. If this happened while sending email or SMS, check that the backend is online and the SMTP/SMS provider is reachable from the server.`,
+      0,
+    );
+  }
 
   const text = await response.text();
   let parsed: ApiResponse<T> | { message?: string } | null = null;
