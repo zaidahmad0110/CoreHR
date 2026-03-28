@@ -29,6 +29,7 @@ import type {
   RecruitmentData,
   RecruitmentJobDetails,
   SettingsData,
+  CommunicationSettingsUpdateResult,
   UserPermissionTerms,
   UserPermissions,
   UserPrivilegesData,
@@ -819,7 +820,7 @@ export const settingsService = {
     });
   },
   updateCommunications(payload: SettingsData["communications"]) {
-    return apiRequest<SettingsData["communications"]>("/api/settings/communications", {
+    return apiRequest<CommunicationSettingsUpdateResult>("/api/settings/communications", {
       method: "PATCH",
       body: payload,
     });

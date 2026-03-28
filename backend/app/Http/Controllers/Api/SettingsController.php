@@ -17,6 +17,7 @@ use App\Models\Holiday;
 use App\Models\LeaveType;
 use App\Models\PayrollAllowanceType;
 use App\Models\PayrollDeductionType;
+use App\Services\MessagingService;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,8 +25,10 @@ use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
 {
-    public function __construct(private readonly NotificationService $notificationService)
-    {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly MessagingService $messagingService,
+    ) {
     }
 
     private const DEFAULT_COMPANY_SETTINGS = [
@@ -235,9 +238,40 @@ class SettingsController extends Controller
                 : 10,
         ]);
 
+        $testEmailResult = [
+            'status' => 'skipped',
+            'recipient' => null,
+            'error' => null,
+        ];
+
+        $actorEmail = $this->nullableTrimmed((string) ($request->user()?->email ?? ''));
+        $configuredMailer = strtolower((string) ($companySetting->mail_mailer ?? ''));
+
+        if ($configuredMailer === 'smtp' && $actorEmail !== null) {
+            $delivery = $this->messagingService->send(
+                'email',
+                $actorEmail,
+                null,
+                'CoreHR SMTP configuration test',
+                "Your SMTP settings were saved successfully. This is a test email from CoreHR to confirm outbound email delivery is working.",
+                [
+                    'scope' => 'settings_mail_test',
+                ],
+            );
+
+            $testEmailResult = [
+                'status' => $delivery['status'],
+                'recipient' => $actorEmail,
+                'error' => isset($delivery['meta']['error']) ? (string) $delivery['meta']['error'] : null,
+            ];
+        }
+
         return response()->json([
             'message' => 'Email and SMS configuration updated successfully.',
-            'data' => $this->serializeCommunicationSettings($companySetting),
+            'data' => [
+                ...$this->serializeCommunicationSettings($companySetting),
+                'test_email' => $testEmailResult,
+            ],
         ]);
     }
 

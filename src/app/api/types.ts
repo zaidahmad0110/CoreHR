@@ -666,6 +666,14 @@ export interface SettingsData {
   };
 }
 
+export interface CommunicationSettingsUpdateResult extends SettingsData["communications"] {
+  test_email?: {
+    status: "sent" | "failed" | "skipped" | "simulated";
+    recipient: string | null;
+    error: string | null;
+  };
+}
+
 export interface UserPrivilegesData {
   permissions_catalog: string[];
   users: Array<{

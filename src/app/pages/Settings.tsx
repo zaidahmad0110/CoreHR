@@ -252,7 +252,7 @@ export function Settings() {
   const handleSaveCommunications = async () => {
     setCommunicationSaving(true);
     await runAction(async () => {
-      await settingsService.updateCommunications({
+      const result = await settingsService.updateCommunications({
         mail_mailer: communicationForm.mail_mailer.trim() || null,
         mail_host: communicationForm.mail_host.trim() || null,
         mail_port: communicationForm.mail_port.trim() ? Number(communicationForm.mail_port.trim()) : null,
@@ -267,6 +267,18 @@ export function Settings() {
           ? Number(communicationForm.sms_gateway_timeout.trim())
           : 10,
       });
+
+      if (result.test_email?.status === "sent") {
+        window.alert(`SMTP test email sent to ${result.test_email.recipient}.`);
+      } else if (result.test_email?.status === "simulated") {
+        window.alert("Email settings saved. Mail delivery is currently simulated.");
+      } else if (result.test_email?.status === "failed") {
+        window.alert(
+          result.test_email.error
+            ? `Email settings saved, but the SMTP test email failed: ${result.test_email.error}`
+            : "Email settings saved, but the SMTP test email failed.",
+        );
+      }
     });
     setCommunicationSaving(false);
   };
