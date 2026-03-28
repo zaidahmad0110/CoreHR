@@ -64,6 +64,29 @@ export function Layout() {
     navigate("/login");
   };
 
+  const handleOpenProfile = () => {
+    if (user?.employee_profile_id) {
+      navigate(`/employees/${user.employee_profile_id}`);
+      return;
+    }
+
+    if (permissions?.employees) {
+      navigate("/employees");
+      return;
+    }
+
+    navigate("/dashboard");
+  };
+
+  const handleOpenSettings = () => {
+    if (permissions?.settings) {
+      navigate("/settings");
+      return;
+    }
+
+    handleOpenProfile();
+  };
+
   const handleNotificationRead = async (id: number) => {
     await notificationService.markAsRead(id);
     await refetchNotifications();
@@ -281,8 +304,8 @@ export function Layout() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem>{t("layout.menu.profile")}</DropdownMenuItem>
-                <DropdownMenuItem>{t("layout.menu.settings")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleOpenProfile}>{t("layout.menu.profile")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleOpenSettings}>{t("layout.menu.settings")}</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
