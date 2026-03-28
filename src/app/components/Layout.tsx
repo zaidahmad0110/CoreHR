@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard, Users, Clock, Calendar, DollarSign, Briefcase,
   TrendingUp, GraduationCap, BookOpen, Monitor, Receipt, CreditCard,
-  Building2, Settings as SettingsIcon, ShieldCheck, Bell, Search, ChevronDown, LogOut, Bot
+  Building2, Settings as SettingsIcon, ShieldCheck, Bell, Search, ChevronDown, LogOut, Bot, Menu
 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Input } from "./ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { useAuth } from "../auth/AuthContext";
 import { useApiQuery } from "../hooks/useApiQuery";
 import { notificationService } from "../api/services";
@@ -44,6 +45,7 @@ export function Layout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { t, isRtl } = useI18n();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: notifications, refetch: refetchNotifications } = useApiQuery(
     () => notificationService.getNotifications(),
     [],
@@ -131,6 +133,47 @@ export function Layout() {
       .toUpperCase()
     : "HR";
 
+  const renderBrand = (compact = false) => (
+    <div className="flex items-center gap-2 min-w-0">
+      {companyLogoUrl ? (
+        <div className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200 bg-white flex items-center justify-center shrink-0">
+          <img src={companyLogoUrl} alt={companyName} className="w-full h-full object-contain" />
+        </div>
+      ) : (
+        <div className="w-8 h-8 bg-[#2563EB] rounded-lg flex items-center justify-center shrink-0">
+          <span className="text-white font-semibold">{companyInitials}</span>
+        </div>
+      )}
+      <span className={`font-semibold text-gray-900 truncate ${compact ? "max-w-[11rem]" : ""}`}>
+        {companyName}
+      </span>
+    </div>
+  );
+
+  const renderNavigation = (onNavigate?: () => void) => (
+    <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      {visibleNavigation.map((item) => {
+        const isActive = location.pathname === item.path;
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={onNavigate}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors ${
+              isActive
+                ? "bg-[#2563EB] text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Icon className="w-5 h-5 shrink-0" />
+            <span className="font-medium truncate">{t(item.key)}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
   useEffect(() => {
     document.title = companyName;
   }, [companyName]);
@@ -188,54 +231,47 @@ export function Layout() {
   }, [refetchNotifications]);
 
   return (
-    <div className={`flex h-screen bg-[#F8FAFC] ${isRtl ? "flex-row-reverse" : ""}`}>
+    <div className={`flex min-h-screen bg-[#F8FAFC] ${isRtl ? "lg:flex-row-reverse" : ""}`}>
       {/* Sidebar */}
-      <aside className={`w-64 bg-white ${isRtl ? "border-l" : "border-r"} border-gray-200 flex flex-col`}>
-        {/* Logo */}
+      <aside className={`hidden lg:flex lg:w-64 bg-white ${isRtl ? "border-l" : "border-r"} border-gray-200 flex-col`}>
         <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            {companyLogoUrl ? (
-              <div className="w-8 h-8 rounded-lg overflow-hidden border border-gray-200 bg-white flex items-center justify-center">
-                <img src={companyLogoUrl} alt={companyName} className="w-full h-full object-contain" />
-              </div>
-            ) : (
-              <div className="w-8 h-8 bg-[#2563EB] rounded-lg flex items-center justify-center">
-                <span className="text-white font-semibold">{companyInitials}</span>
-              </div>
-            )}
-            <span className="font-semibold text-gray-900">{companyName}</span>
-          </div>
+          {renderBrand()}
         </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
-          {visibleNavigation.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 transition-colors ${
-                  isActive
-                    ? "bg-[#2563EB] text-white"
-                    : "text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="font-medium">{t(item.key)}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {renderNavigation()}
       </aside>
+
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side={isRtl ? "right" : "left"} className="w-[85vw] max-w-sm p-0">
+          <SheetHeader className="border-b border-gray-200">
+            <SheetTitle>{companyName}</SheetTitle>
+            <SheetDescription>Navigate through CoreHR</SheetDescription>
+          </SheetHeader>
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="px-4 pt-2">{renderBrand(true)}</div>
+            {renderNavigation(() => setMobileNavOpen(false))}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+        <header className="bg-white border-b border-gray-200 flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="lg:hidden">{renderBrand(true)}</div>
+          </div>
+
           {/* Search */}
-          <div className="flex-1 max-w-xl">
+          <div className="order-3 w-full sm:order-2 sm:flex-1 sm:max-w-xl lg:order-none lg:w-auto">
             <div className="relative">
               <Search className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 ${isRtl ? "right-3" : "left-3"}`} />
               <Input
@@ -247,7 +283,7 @@ export function Layout() {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-2 sm:gap-4">
             {/* Notifications */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -258,7 +294,7 @@ export function Layout() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-80">
                 {displayedNotifications.length === 0 ? (
                   <DropdownMenuItem disabled>{t("layout.notifications.empty")}</DropdownMenuItem>
                 ) : (
@@ -292,11 +328,11 @@ export function Layout() {
             {/* User menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2">
+                <Button variant="ghost" className="gap-2 px-2 sm:px-3">
                   <div className="w-8 h-8 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <span className="text-white text-sm font-medium">{initials}</span>
                   </div>
-                  <div className="text-left">
+                  <div className="hidden text-left sm:block">
                     <div className="text-sm font-medium">{user?.name ?? "User"}</div>
                     <div className="text-xs text-gray-500">{user?.role ?? "Employee"}</div>
                   </div>
@@ -317,7 +353,7 @@ export function Layout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
