@@ -43,11 +43,6 @@ CoreHR is a comprehensive web-based Human Resources Management System designed f
 - **Laravel Queue** - Async job processing
 - **Laravel Mail** - Email notifications
 
-### Deployment
-- **Frontend:** Vercel
-- **Backend:** Render
-- **Database:** MySQL (FreeSQLDatabase)
-
 ---
 
 ## 📋 Prerequisites
