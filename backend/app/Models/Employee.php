@@ -13,6 +13,7 @@ class Employee extends Model
         'branch_id',
         'manager_id',
         'employee_code',
+        'biotime_emp_code',
         'name',
         'email',
         'phone',

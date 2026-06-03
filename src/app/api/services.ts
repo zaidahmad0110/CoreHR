@@ -4,6 +4,7 @@ import type {
   ExpensesData,
   LoansData,
   AttendanceData,
+  BioTimeSyncResult,
   AuthTwoFactorChallenge,
   AuthUser,
   BranchItem,
@@ -823,6 +824,18 @@ export const settingsService = {
     return apiRequest<CommunicationSettingsUpdateResult>("/api/settings/communications", {
       method: "PATCH",
       body: payload,
+    });
+  },
+  updateBioTime(payload: Omit<SettingsData["biotime"], "last_sync_at">) {
+    return apiRequest<SettingsData["biotime"]>("/api/settings/biotime", {
+      method: "PATCH",
+      body: payload,
+    });
+  },
+  syncBioTime(payload?: { start_time?: string; end_time?: string }) {
+    return apiRequest<BioTimeSyncResult>("/api/settings/biotime/sync", {
+      method: "POST",
+      body: payload ?? {},
     });
   },
   updateNotifications(payload: SettingsData["notifications"]) {

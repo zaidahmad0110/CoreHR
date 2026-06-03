@@ -149,6 +149,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/settings', [SettingsController::class, 'index']);
         Route::patch('/settings/company', [SettingsController::class, 'updateCompany']);
         Route::patch('/settings/communications', [SettingsController::class, 'updateCommunications']);
+        Route::patch('/settings/biotime', [SettingsController::class, 'updateBioTime']);
+        Route::post('/settings/biotime/sync', [SettingsController::class, 'syncBioTime']);
         Route::patch('/settings/notifications', [SettingsController::class, 'updateNotifications']);
         Route::post('/settings/notifications/broadcast', [SettingsController::class, 'broadcastNotification']);
         Route::post('/settings/leave-types', [SettingsController::class, 'storeLeaveType']);

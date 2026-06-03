@@ -1,0 +1,248 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AttendanceRecord;
+use App\Models\BioTimePunchLog;
+use App\Models\CompanySetting;
+use App\Models\Employee;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+class BioTimeSyncService
+{
+    public function sync(?Carbon $startTime = null, ?Carbon $endTime = null): array
+    {
+        $settings = CompanySetting::query()->first();
+
+        if (! $settings || ! $settings->biotime_enabled) {
+            throw new RuntimeException('BioTime integration is not enabled.');
+        }
+
+        $baseUrl = rtrim((string) $settings->biotime_base_url, '/');
+        $username = trim((string) $settings->biotime_username);
+        $password = trim((string) $settings->biotime_password);
+        $timeout = max((int) ($settings->biotime_timeout ?? 20), 1);
+
+        if ($baseUrl === '' || $username === '' || $password === '') {
+            throw new RuntimeException('BioTime base URL, username, and password are required.');
+        }
+
+        $endTime ??= now();
+        $startTime ??= $settings->biotime_last_sync_at
+            ? Carbon::parse($settings->biotime_last_sync_at)->subDay()
+            : $endTime->copy()->subDays(7);
+
+        $token = $this->authenticate($baseUrl, $username, $password, $timeout);
+        $transactions = $this->fetchTransactions($baseUrl, $token, $startTime, $endTime, $timeout);
+
+        $employeeMap = $this->buildEmployeeMap();
+        $unmatchedCodes = [];
+        $imported = 0;
+
+        foreach ($transactions as $transaction) {
+            $empCode = trim((string) ($transaction['emp_code'] ?? ''));
+            $punchTimeRaw = $transaction['punch_time'] ?? null;
+
+            if ($empCode === '' || ! is_string($punchTimeRaw) || trim($punchTimeRaw) === '') {
+                continue;
+            }
+
+            $punchTime = Carbon::parse($punchTimeRaw);
+            $employee = $employeeMap[$empCode] ?? null;
+
+            if (! $employee) {
+                $unmatchedCodes[$empCode] = true;
+            }
+
+            $externalId = $this->resolveExternalId($transaction, $empCode, $punchTime);
+
+            BioTimePunchLog::query()->updateOrCreate(
+                ['external_id' => $externalId],
+                [
+                    'employee_id' => $employee?->id,
+                    'emp_code' => $empCode,
+                    'punch_time' => $punchTime,
+                    'punch_state' => isset($transaction['punch_state']) ? (string) $transaction['punch_state'] : null,
+                    'verify_type' => isset($transaction['verify_type']) ? (int) $transaction['verify_type'] : null,
+                    'terminal_sn' => isset($transaction['terminal_sn']) ? (string) $transaction['terminal_sn'] : null,
+                    'terminal_alias' => isset($transaction['terminal_alias']) ? (string) $transaction['terminal_alias'] : null,
+                    'upload_time' => ! empty($transaction['upload_time']) ? Carbon::parse((string) $transaction['upload_time']) : null,
+                    'raw_payload' => $transaction,
+                    'processed_at' => $employee ? now() : null,
+                ],
+            );
+
+            if ($employee) {
+                $imported++;
+            }
+        }
+
+        $updatedAttendance = $this->rebuildAttendanceFromPunches($startTime, $endTime);
+        $settings->forceFill(['biotime_last_sync_at' => now()])->save();
+
+        return [
+            'fetched' => $transactions->count(),
+            'imported' => $imported,
+            'attendance_updated' => $updatedAttendance,
+            'unmatched_emp_codes' => array_values(array_keys($unmatchedCodes)),
+            'start_time' => $startTime->toDateTimeString(),
+            'end_time' => $endTime->toDateTimeString(),
+            'synced_at' => now()->toDateTimeString(),
+        ];
+    }
+
+    private function authenticate(string $baseUrl, string $username, string $password, int $timeout): string
+    {
+        $response = Http::timeout($timeout)
+            ->acceptJson()
+            ->asJson()
+            ->post($baseUrl.'/api-token-auth/', [
+                'username' => $username,
+                'password' => $password,
+            ]);
+
+        if (! $response->successful()) {
+            throw new RuntimeException('BioTime authentication failed: '.$response->body());
+        }
+
+        $payload = $response->json();
+        $token = $payload['token'] ?? $payload['data']['token'] ?? $payload['access'] ?? null;
+
+        if (! is_string($token) || trim($token) === '') {
+            throw new RuntimeException('BioTime authentication did not return a usable token.');
+        }
+
+        return trim($token);
+    }
+
+    private function fetchTransactions(
+        string $baseUrl,
+        string $token,
+        Carbon $startTime,
+        Carbon $endTime,
+        int $timeout
+    ): Collection {
+        $allRows = collect();
+        $page = 1;
+        $limit = 100;
+
+        do {
+            $response = Http::timeout($timeout)
+                ->acceptJson()
+                ->withHeaders([
+                    'Authorization' => 'Token '.$token,
+                ])
+                ->get($baseUrl.'/iclock/api/transactions/', [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'start_time' => $startTime->format('Y-m-d H:i:s'),
+                    'end_time' => $endTime->format('Y-m-d H:i:s'),
+                ]);
+
+            if (! $response->successful()) {
+                throw new RuntimeException('BioTime transaction sync failed: '.$response->body());
+            }
+
+            $payload = $response->json();
+            $rows = collect($payload['data'] ?? $payload['results'] ?? []);
+            $allRows = $allRows->merge($rows);
+
+            $hasNext = ! empty($payload['next']) || $rows->count() === $limit;
+            $page++;
+        } while ($hasNext && $page <= 100);
+
+        return $allRows;
+    }
+
+    /**
+     * @return array<string, Employee>
+     */
+    private function buildEmployeeMap(): array
+    {
+        $map = [];
+
+        Employee::query()
+            ->select(['id', 'employee_code', 'biotime_emp_code'])
+            ->get()
+            ->each(function (Employee $employee) use (&$map): void {
+                $employeeCode = trim((string) $employee->employee_code);
+                $bioTimeCode = trim((string) $employee->biotime_emp_code);
+
+                if ($employeeCode !== '') {
+                    $map[$employeeCode] = $employee;
+                }
+
+                if ($bioTimeCode !== '') {
+                    $map[$bioTimeCode] = $employee;
+                }
+            });
+
+        return $map;
+    }
+
+    private function rebuildAttendanceFromPunches(Carbon $startTime, Carbon $endTime): int
+    {
+        $updated = 0;
+
+        BioTimePunchLog::query()
+            ->whereNotNull('employee_id')
+            ->whereBetween('punch_time', [$startTime, $endTime])
+            ->orderBy('punch_time')
+            ->get()
+            ->groupBy(fn (BioTimePunchLog $log): string => $log->employee_id.'|'.$log->punch_time->toDateString())
+            ->each(function (Collection $logs) use (&$updated): void {
+                /** @var BioTimePunchLog $first */
+                $first = $logs->first();
+                /** @var BioTimePunchLog $last */
+                $last = $logs->last();
+
+                $checkIn = $first->punch_time;
+                $checkOut = $logs->count() > 1 ? $last->punch_time : null;
+                $workMinutes = $checkOut ? max($checkIn->diffInMinutes($checkOut), 0) : null;
+
+                AttendanceRecord::query()->updateOrCreate(
+                    [
+                        'employee_id' => $first->employee_id,
+                        'date' => $checkIn->toDateString(),
+                    ],
+                    [
+                        'check_in' => $checkIn->format('H:i:s'),
+                        'check_out' => $checkOut?->format('H:i:s'),
+                        'work_minutes' => $workMinutes,
+                        'status' => $this->resolveAttendanceStatus($checkIn, $workMinutes),
+                    ],
+                );
+
+                $updated++;
+            });
+
+        return $updated;
+    }
+
+    private function resolveAttendanceStatus(Carbon $checkIn, ?int $workMinutes): string
+    {
+        if ($workMinutes !== null && $workMinutes >= 540) {
+            return 'Overtime';
+        }
+
+        return $checkIn->format('H:i:s') > '09:00:00' ? 'Late' : 'Present';
+    }
+
+    private function resolveExternalId(array $transaction, string $empCode, Carbon $punchTime): string
+    {
+        if (! empty($transaction['id'])) {
+            return 'biotime:'.(string) $transaction['id'];
+        }
+
+        return 'biotime:'.sha1(implode('|', [
+            $empCode,
+            $punchTime->toDateTimeString(),
+            (string) ($transaction['terminal_sn'] ?? ''),
+            Str::limit(json_encode($transaction) ?: '', 100, ''),
+        ]));
+    }
+}
