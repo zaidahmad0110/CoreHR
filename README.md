@@ -205,6 +205,58 @@ If PHP is not found automatically, set the PHP path once in Windows PowerShell:
 
 Then double-click `start-corehr-hidden.vbs` again.
 
+### Avoid Conflicts With Services on 127.0.0.1
+
+If another important service is already running on `127.0.0.1`, do not bind CoreHR to `0.0.0.0` or `localhost`.
+
+Use the server LAN IP instead.
+
+Find the LAN IP:
+
+```powershell
+ipconfig
+```
+
+Example LAN IP:
+
+```text
+192.168.100.201
+```
+
+Set CoreHR to use that IP and optional non-default ports:
+
+```powershell
+[Environment]::SetEnvironmentVariable("COREHR_HOST_ADDRESS", "192.168.100.201", "User")
+[Environment]::SetEnvironmentVariable("COREHR_BACKEND_PORT", "8088", "User")
+[Environment]::SetEnvironmentVariable("COREHR_FRONTEND_PORT", "5174", "User")
+```
+
+Then double-click:
+
+```text
+start-corehr-hidden.vbs
+```
+
+Open the app from:
+
+```text
+http://192.168.100.201:5174
+```
+
+The launcher automatically sets the frontend API URL to:
+
+```text
+http://192.168.100.201:8088
+```
+
+To reset back to defaults:
+
+```powershell
+[Environment]::SetEnvironmentVariable("COREHR_HOST_ADDRESS", $null, "User")
+[Environment]::SetEnvironmentVariable("COREHR_BACKEND_PORT", $null, "User")
+[Environment]::SetEnvironmentVariable("COREHR_FRONTEND_PORT", $null, "User")
+```
+
 ---
 
 ## Default Admin Access

@@ -1,8 +1,9 @@
 param(
     [string] $PhpPath = $env:COREHR_PHP_PATH,
-    [int] $BackendPort = 8000,
-    [int] $FrontendPort = 5173,
-    [string] $HostAddress = "0.0.0.0"
+    [int] $BackendPort = $(if ($env:COREHR_BACKEND_PORT) { [int] $env:COREHR_BACKEND_PORT } else { 8000 }),
+    [int] $FrontendPort = $(if ($env:COREHR_FRONTEND_PORT) { [int] $env:COREHR_FRONTEND_PORT } else { 5173 }),
+    [string] $HostAddress = $(if ($env:COREHR_HOST_ADDRESS) { $env:COREHR_HOST_ADDRESS } else { "0.0.0.0" }),
+    [string] $ApiBaseUrl = $env:VITE_API_BASE_URL
 )
 
 $ErrorActionPreference = "Stop"
@@ -73,9 +74,21 @@ function Test-PidFile {
 }
 
 function Test-PortListener {
-    param([int] $Port)
+    param(
+        [int] $Port,
+        [string] $Address
+    )
 
-    $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+
+    if ($Address -in @("0.0.0.0", "::", "*")) {
+        return [bool]($listeners | Select-Object -First 1)
+    }
+
+    $listener = $listeners | Where-Object {
+        $_.LocalAddress -in @($Address, "0.0.0.0", "::")
+    } | Select-Object -First 1
+
     return [bool] $listener
 }
 
@@ -85,13 +98,14 @@ function Start-HiddenProcess {
         [string] $FilePath,
         [string[]] $Arguments,
         [string] $WorkingDirectory,
-        [int] $Port
+        [int] $Port,
+        [string] $Address
     )
 
     $pidFile = Join-Path $RuntimeDir "$Name.pid"
 
-    if (Test-PortListener $Port) {
-        Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) $Name port $Port already has a listener."
+    if (Test-PortListener -Port $Port -Address $Address) {
+        Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) $Name $Address`:$Port already has a listener."
         return
     }
 
@@ -122,17 +136,33 @@ if (-not (Test-Path $BackendDir)) {
 
 $php = Resolve-PhpExecutable $PhpPath
 $npm = Resolve-NpmExecutable
+$resolvedApiHost = if ($HostAddress -in @("0.0.0.0", "::", "*")) { "localhost" } else { $HostAddress }
+
+if (-not $ApiBaseUrl) {
+    $ApiBaseUrl = "http://$resolvedApiHost`:$BackendPort"
+}
+
+$env:VITE_API_BASE_URL = $ApiBaseUrl
+Set-Content -Path (Join-Path $RuntimeDir "corehr-config.json") -Value (@{
+    backend_port = $BackendPort
+    frontend_port = $FrontendPort
+    host_address = $HostAddress
+    api_base_url = $ApiBaseUrl
+} | ConvertTo-Json)
+Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) CoreHR host=$HostAddress backend=$BackendPort frontend=$FrontendPort api=$ApiBaseUrl."
 
 Start-HiddenProcess `
     -Name "backend" `
     -FilePath $php `
     -Arguments @("artisan", "serve", "--host=$HostAddress", "--port=$BackendPort") `
     -WorkingDirectory $BackendDir `
-    -Port $BackendPort
+    -Port $BackendPort `
+    -Address $HostAddress
 
 Start-HiddenProcess `
     -Name "frontend" `
     -FilePath $npm `
     -Arguments @("run", "dev", "--", "--host", $HostAddress, "--port", "$FrontendPort") `
     -WorkingDirectory $RootDir `
-    -Port $FrontendPort
+    -Port $FrontendPort `
+    -Address $HostAddress

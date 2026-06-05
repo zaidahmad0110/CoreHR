@@ -1,6 +1,7 @@
 param(
-    [int] $BackendPort = 8000,
-    [int] $FrontendPort = 5173
+    [int] $BackendPort = $(if ($env:COREHR_BACKEND_PORT) { [int] $env:COREHR_BACKEND_PORT } else { 8000 }),
+    [int] $FrontendPort = $(if ($env:COREHR_FRONTEND_PORT) { [int] $env:COREHR_FRONTEND_PORT } else { 5173 }),
+    [string] $HostAddress = $(if ($env:COREHR_HOST_ADDRESS) { $env:COREHR_HOST_ADDRESS } else { "0.0.0.0" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,6 +11,24 @@ $RootDir = Split-Path -Parent $ScriptDir
 $RuntimeDir = Join-Path $RootDir ".corehr-runtime"
 
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+
+$configFile = Join-Path $RuntimeDir "corehr-config.json"
+if (Test-Path $configFile) {
+    try {
+        $config = Get-Content $configFile -Raw | ConvertFrom-Json
+        if ($config.backend_port) {
+            $BackendPort = [int] $config.backend_port
+        }
+        if ($config.frontend_port) {
+            $FrontendPort = [int] $config.frontend_port
+        }
+        if ($config.host_address) {
+            $HostAddress = [string] $config.host_address
+        }
+    } catch {
+        Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) Could not read runtime config: $($_.Exception.Message)"
+    }
+}
 
 function Stop-ProcessTree {
     param([int] $ProcessId)
@@ -26,9 +45,18 @@ function Stop-ProcessTree {
 }
 
 function Stop-PortListener {
-    param([int] $Port)
+    param(
+        [int] $Port,
+        [string] $Address
+    )
 
     $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($Address -notin @("0.0.0.0", "::", "*")) {
+        $listeners = $listeners | Where-Object { $_.LocalAddress -eq $Address }
+    } else {
+        $listeners = $listeners | Where-Object { $_.LocalAddress -in @("0.0.0.0", "::") }
+    }
+
     foreach ($listener in $listeners) {
         $processId = [int] $listener.OwningProcess
         if ($processId -le 0) {
@@ -38,7 +66,7 @@ function Stop-PortListener {
         $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
         if ($process) {
             Stop-ProcessTree -ProcessId $process.Id
-            Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) Stopped listener on port $Port with PID $($process.Id)."
+            Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) Stopped listener on $Address`:$Port with PID $($process.Id)."
         }
     }
 }
@@ -63,7 +91,7 @@ foreach ($name in @("backend", "frontend")) {
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
 
-Stop-PortListener -Port $BackendPort
-Stop-PortListener -Port $FrontendPort
+Stop-PortListener -Port $BackendPort -Address $HostAddress
+Stop-PortListener -Port $FrontendPort -Address $HostAddress
 
 Write-Output "CoreHR background processes stopped."
