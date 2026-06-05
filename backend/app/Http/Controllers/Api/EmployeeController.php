@@ -141,7 +141,7 @@ class EmployeeController extends Controller
             }
         }
 
-        $employee = DB::transaction(function () use ($payload, $departmentId): Employee {
+        $employee = DB::transaction(function () use ($payload, $departmentId, $managerId): Employee {
             $employee = Employee::create([
                 'employee_code' => $this->generateEmployeeCode(),
                 'name' => $payload['name'],
