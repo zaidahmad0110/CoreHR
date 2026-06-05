@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BioTimePunchLog extends Model
 {
+    protected $table = 'biotime_punch_logs';
+
     protected $fillable = [
         'external_id',
         'employee_id',
