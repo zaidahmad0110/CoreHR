@@ -54,6 +54,8 @@ const getFallbackRoute = (permissions?: Partial<UserPermissions>) => {
   return null;
 };
 
+const isAdminRole = (role?: string | null) => (role ?? "").trim().toLowerCase() === "admin";
+
 export function RequirePermission({
   permission,
   children,
@@ -71,9 +73,9 @@ export function RequirePermission({
     return <Navigate to="/login" replace />;
   }
 
-  const hasPermission = Boolean(user?.permissions?.[permission]);
+  const hasPermission = isAdminRole(user?.role) || Boolean(user?.permissions?.[permission]);
   if (!hasPermission) {
-    const fallbackRoute = getFallbackRoute(user?.permissions);
+    const fallbackRoute = isAdminRole(user?.role) ? "/dashboard" : getFallbackRoute(user?.permissions);
     if (fallbackRoute) {
       return <Navigate to={fallbackRoute} replace />;
     }

@@ -40,6 +40,8 @@ const navigation = [
   { key: "layout.nav.user_privileges", path: "/user-privileges", icon: ShieldCheck, permission: "settings" },
 ];
 
+const isAdminRole = (role?: string | null) => (role ?? "").trim().toLowerCase() === "admin";
+
 export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -55,11 +57,11 @@ export function Layout() {
   const shownBrowserNotificationsRef = useRef<Set<number>>(new Set());
 
   const visibleNavigation = navigation.filter((item) => {
-    if (item.path === "/user-privileges" && (user?.role ?? "").toLowerCase() !== "admin") {
+    if (item.path === "/user-privileges" && !isAdminRole(user?.role)) {
       return false;
     }
 
-    return Boolean(permissions?.[item.permission]);
+    return isAdminRole(user?.role) || Boolean(permissions?.[item.permission]);
   });
 
   const handleLogout = async () => {
@@ -73,7 +75,7 @@ export function Layout() {
       return;
     }
 
-    if (permissions?.employees) {
+    if (isAdminRole(user?.role) || permissions?.employees) {
       navigate("/employees");
       return;
     }
@@ -82,7 +84,7 @@ export function Layout() {
   };
 
   const handleOpenSettings = () => {
-    if (permissions?.settings) {
+    if (isAdminRole(user?.role) || permissions?.settings) {
       navigate("/settings");
       return;
     }
