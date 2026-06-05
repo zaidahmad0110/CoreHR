@@ -38,6 +38,7 @@ import type {
 
 export interface EmployeeMutationPayload {
   name: string;
+  employee_code?: string;
   email: string;
   phone?: string;
   job_title: string;

@@ -142,8 +142,11 @@ class EmployeeController extends Controller
         }
 
         $employee = DB::transaction(function () use ($payload, $departmentId, $managerId): Employee {
+            $employeeCode = $this->normalizeEmployeeCode($payload['employee_code'] ?? null);
+
             $employee = Employee::create([
-                'employee_code' => $this->generateEmployeeCode(),
+                'employee_code' => $employeeCode ?? $this->generateEmployeeCode(),
+                'biotime_emp_code' => $employeeCode,
                 'name' => $payload['name'],
                 'email' => $payload['email'],
                 'phone' => $payload['phone'] ?? null,
@@ -324,6 +327,7 @@ class EmployeeController extends Controller
         }
 
         if ($canEditExtendedFields) {
+            $employeeCode = $this->normalizeEmployeeCode($payload['employee_code'] ?? null) ?? $employee->employee_code;
             $manualManagerId = isset($payload['manager_id']) && is_numeric($payload['manager_id'])
                 ? (int) $payload['manager_id']
                 : null;
@@ -336,6 +340,8 @@ class EmployeeController extends Controller
             );
 
             $employee->update([
+                'employee_code' => $employeeCode,
+                'biotime_emp_code' => $employeeCode,
                 'name' => $payload['name'],
                 'email' => $payload['email'],
                 'phone' => $payload['phone'] ?? null,
@@ -1379,6 +1385,13 @@ class EmployeeController extends Controller
         }
 
         return Branch::query()->where('name', $branchName)->value('id');
+    }
+
+    private function normalizeEmployeeCode(mixed $employeeCode): ?string
+    {
+        $normalized = trim((string) $employeeCode);
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     private function resolveManagerIdForEmployee(

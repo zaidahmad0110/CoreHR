@@ -34,6 +34,7 @@ class UpdateEmployeeRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
+            'employee_code' => ['nullable', 'string', 'max:255', Rule::unique('employees', 'employee_code')->ignore($employee?->id)],
             'email' => ['required', 'email', 'max:255', Rule::unique('employees', 'email')->ignore($employee?->id)],
             'phone' => ['nullable', 'string', 'max:50'],
             'job_title' => ['required', 'string', 'max:255', Rule::in($allowedJobTitles)],

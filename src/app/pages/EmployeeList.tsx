@@ -39,6 +39,7 @@ import type { EmployeeListItem } from "../api/types";
 
 type EmployeeFormState = {
   name: string;
+  employeeCode: string;
   email: string;
   phone: string;
   jobTitle: string;
@@ -70,6 +71,7 @@ type EmployeeEditSnapshot = {
 
 const defaultFormState: EmployeeFormState = {
   name: "",
+  employeeCode: "",
   email: "",
   phone: "",
   jobTitle: "",
@@ -527,6 +529,7 @@ export function EmployeeList() {
 
       setFormState({
         name: profile.name,
+        employeeCode: profile.employee_id,
         email: profile.email,
         phone: profile.phone ?? "",
         jobTitle: profile.job_title,
@@ -623,6 +626,7 @@ export function EmployeeList() {
     if (formMode === "create") {
       payload = {
         name: formState.name,
+        employee_code: formState.employeeCode || undefined,
         email: formState.email,
         phone: formState.phone || undefined,
         job_title: formState.jobTitle,
@@ -679,6 +683,7 @@ export function EmployeeList() {
       } else {
         payload = {
           name: formState.name,
+          employee_code: formState.employeeCode || undefined,
           email: formState.email,
           phone: formState.phone || undefined,
           job_title: formState.jobTitle,
@@ -851,6 +856,19 @@ export function EmployeeList() {
                     disabled={hideRestrictedCompensationFields}
                   />
                 </div>
+                {canManageEmployees && (
+                  <div>
+                    <Label htmlFor="emp-code">Employee ID / BioTime Code</Label>
+                    <Input
+                      id="emp-code"
+                      className="mt-2"
+                      placeholder="Example: 158"
+                      value={formState.employeeCode}
+                      onChange={(event) => updateForm("employeeCode", event.target.value)}
+                      disabled={formMode === "edit" && !canEditExtendedEmployeeFields}
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="emp-email">Email</Label>
                   <Input

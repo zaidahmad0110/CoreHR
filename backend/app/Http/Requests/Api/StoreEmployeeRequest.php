@@ -26,6 +26,7 @@ class StoreEmployeeRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'employee_code' => ['nullable', 'string', 'max:255', 'unique:employees,employee_code'],
             'email' => [
                 'required',
                 'email',
