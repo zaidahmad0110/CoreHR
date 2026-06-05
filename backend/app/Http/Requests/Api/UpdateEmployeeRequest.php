@@ -9,10 +9,12 @@ use Illuminate\Validation\Rule;
 class UpdateEmployeeRequest extends FormRequest
 {
     private const ALLOWED_JOB_TITLES = [
-        'Coordinator',
-        'Supervisor',
-        'Manager',
+        'CEO',
+        'GM',
         'Department manager',
+        'Manager',
+        'Supervisor',
+        'Coordinator',
     ];
 
     public function authorize(): bool

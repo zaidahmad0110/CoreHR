@@ -122,21 +122,54 @@ type EmployeeTreeNode = EmployeeListItem & {
 
 const normalizeJobTitle = (value: string | null | undefined) => value?.trim().toLowerCase() ?? "";
 
-const resolveRoleRank = (jobTitle: string): number => {
+type EmployeeHierarchyRole =
+  | "ceo"
+  | "gm"
+  | "department-manager"
+  | "manager"
+  | "supervisor"
+  | "coordinator"
+  | "other";
+
+const resolveHierarchyRole = (jobTitle: string): EmployeeHierarchyRole => {
   switch (normalizeJobTitle(jobTitle)) {
     case "ceo":
     case "chief executive officer":
-      return 0;
+      return "ceo";
+    case "gm":
+    case "general manager":
+      return "gm";
     case "department manager":
-      return 1;
+    case "department head":
+    case "dept manager":
+      return "department-manager";
     case "manager":
-      return 2;
+      return "manager";
     case "supervisor":
-      return 3;
+      return "supervisor";
     case "coordinator":
-      return 4;
+      return "coordinator";
     default:
+      return "other";
+  }
+};
+
+const resolveRoleRank = (jobTitle: string): number => {
+  switch (resolveHierarchyRole(jobTitle)) {
+    case "ceo":
+      return 0;
+    case "gm":
+      return 1;
+    case "department-manager":
+      return 2;
+    case "manager":
+      return 3;
+    case "supervisor":
+      return 4;
+    case "coordinator":
       return 5;
+    default:
+      return 6;
   }
 };
 
@@ -158,6 +191,16 @@ const sortTreeNodes = (nodes: EmployeeTreeNode[]): EmployeeTreeNode[] =>
     }));
 
 const buildEmployeeTree = (employees: EmployeeListItem[]): EmployeeTreeNode[] => {
+  const expectedParentRoles: Record<EmployeeHierarchyRole, EmployeeHierarchyRole[]> = {
+    ceo: [],
+    gm: ["ceo"],
+    "department-manager": ["gm", "ceo"],
+    manager: ["department-manager", "gm", "ceo"],
+    supervisor: ["manager", "department-manager", "gm", "ceo"],
+    coordinator: ["supervisor", "manager", "department-manager", "gm", "ceo"],
+    other: ["supervisor", "manager", "department-manager", "gm", "ceo"],
+  };
+
   const nodesById = new Map<number, EmployeeTreeNode>(
     employees.map((employee) => [
       employee.id,
@@ -168,10 +211,6 @@ const buildEmployeeTree = (employees: EmployeeListItem[]): EmployeeTreeNode[] =>
     ]),
   );
 
-  const ceo = [...employees]
-    .filter((employee) => resolveRoleRank(employee.job_title) === 0)
-    .sort(sortByHierarchy)[0];
-
   const employeesByDepartment = new Map<string, EmployeeListItem[]>();
   employees.forEach((employee) => {
     const bucket = employeesByDepartment.get(employee.department) ?? [];
@@ -179,38 +218,55 @@ const buildEmployeeTree = (employees: EmployeeListItem[]): EmployeeTreeNode[] =>
     employeesByDepartment.set(employee.department, bucket);
   });
 
+  const findRoleCandidate = (
+    role: EmployeeHierarchyRole,
+    employee: EmployeeListItem,
+    departmentScoped: boolean,
+  ): EmployeeListItem | undefined => {
+    const source = departmentScoped ? employeesByDepartment.get(employee.department) ?? [] : employees;
+
+    return [...source]
+      .filter((candidate) => candidate.id !== employee.id && resolveHierarchyRole(candidate.job_title) === role)
+      .sort(sortByHierarchy)[0];
+  };
+
+  const resolveParent = (employee: EmployeeListItem): EmployeeListItem | undefined => {
+    const role = resolveHierarchyRole(employee.job_title);
+    const candidateRoles = expectedParentRoles[role];
+
+    if (candidateRoles.length === 0) {
+      return undefined;
+    }
+
+    const manualManager = employee.manager_id ? nodesById.get(employee.manager_id) : undefined;
+    if (
+      manualManager
+      && candidateRoles.includes(resolveHierarchyRole(manualManager.job_title))
+      && manualManager.id !== employee.id
+    ) {
+      return manualManager;
+    }
+
+    for (const parentRole of candidateRoles) {
+      const departmentScoped = !["ceo", "gm"].includes(parentRole);
+      const candidate = findRoleCandidate(parentRole, employee, departmentScoped);
+
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    return undefined;
+  };
+
   const parentById = new Map<number, number>();
 
-  employeesByDepartment.forEach((departmentEmployees) => {
-    const sorted = [...departmentEmployees].sort(sortByHierarchy);
+  employees.forEach((employee) => {
+    const parent = resolveParent(employee);
 
-    sorted.forEach((employee) => {
-      const rank = resolveRoleRank(employee.job_title);
-
-      if (rank === 0) {
-        return;
-      }
-
-      let parentId: number | null = null;
-
-      for (let candidateRank = rank - 1; candidateRank >= 0; candidateRank -= 1) {
-        const candidate = sorted.find(
-          (item) => item.id !== employee.id && resolveRoleRank(item.job_title) === candidateRank,
-        );
-        if (candidate) {
-          parentId = candidate.id;
-          break;
-        }
-      }
-
-      if (parentId === null && ceo && ceo.id !== employee.id) {
-        parentId = ceo.id;
-      }
-
-      if (parentId !== null) {
-        parentById.set(employee.id, parentId);
-      }
-    });
+    if (parent) {
+      parentById.set(employee.id, parent.id);
+    }
   });
 
   parentById.forEach((parentId, employeeId) => {

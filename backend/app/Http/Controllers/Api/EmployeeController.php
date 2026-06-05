@@ -1051,17 +1051,21 @@ class EmployeeController extends Controller
         $resolved = match ($normalizedJobTitle) {
             'coordinator' => $this->resolveManagerByRoleHierarchyWithRole(
                 $employee,
-                ['Supervisor', 'Manager', 'Department manager', 'CEO'],
+                ['Supervisor', 'Manager', 'Department manager', 'GM', 'CEO'],
             ),
             'supervisor' => $this->resolveManagerByRoleHierarchyWithRole(
                 $employee,
-                ['Manager', 'Department manager', 'CEO'],
+                ['Manager', 'Department manager', 'GM', 'CEO'],
             ),
             'manager' => $this->resolveManagerByRoleHierarchyWithRole(
                 $employee,
-                ['Department manager', 'CEO'],
+                ['Department manager', 'GM', 'CEO'],
             ),
             'department manager' => $this->resolveManagerByRoleHierarchyWithRole(
+                $employee,
+                ['GM', 'CEO'],
+            ),
+            'gm' => $this->resolveManagerByRoleHierarchyWithRole(
                 $employee,
                 ['CEO'],
             ),
@@ -1112,6 +1116,16 @@ class EmployeeController extends Controller
             }
 
             return strcasecmp(trim($ceoName), trim((string) $employee->name)) === 0 ? null : $ceoName;
+        }
+
+        if ($normalizedRoleTitle === 'gm') {
+            $gmName = $this->resolveGeneralManagerName();
+
+            if ($gmName === 'N/A') {
+                return null;
+            }
+
+            return strcasecmp(trim($gmName), trim((string) $employee->name)) === 0 ? null : $gmName;
         }
 
         if ($normalizedRoleTitle === 'department manager') {
@@ -1224,6 +1238,26 @@ class EmployeeController extends Controller
             ->value('name');
 
         return $userCeoName ? (string) $userCeoName : 'N/A';
+    }
+
+    private function resolveGeneralManagerName(): string
+    {
+        $chartGmName = OrganizationChartPosition::query()
+            ->whereRaw('LOWER(role_key) IN (?, ?)', ['gm', 'general_manager'])
+            ->value('person_name');
+        if ($chartGmName) {
+            return (string) $chartGmName;
+        }
+
+        $employeeGmName = Employee::query()
+            ->whereRaw('LOWER(job_title) IN (?, ?)', ['gm', 'general manager'])
+            ->orderBy('id')
+            ->value('name');
+        if ($employeeGmName) {
+            return (string) $employeeGmName;
+        }
+
+        return 'N/A';
     }
 
     private function resolveEmployeeDisplayStatus(
@@ -1355,6 +1389,27 @@ class EmployeeController extends Controller
         ?int $currentManagerId = null
     ): ?int {
         $normalizedJobTitle = strtolower(trim($jobTitle));
+        $parentRoles = match ($normalizedJobTitle) {
+            'ceo', 'chief executive officer' => [],
+            'gm', 'general manager' => ['ceo', 'chief executive officer'],
+            'department manager' => ['gm', 'general manager', 'ceo', 'chief executive officer'],
+            'manager' => ['department manager', 'gm', 'general manager', 'ceo', 'chief executive officer'],
+            'supervisor' => ['manager', 'department manager', 'gm', 'general manager', 'ceo', 'chief executive officer'],
+            'coordinator' => ['supervisor', 'manager', 'department manager', 'gm', 'general manager', 'ceo', 'chief executive officer'],
+            default => [],
+        };
+
+        if ($parentRoles === []) {
+            return null;
+        }
+
+        if (
+            $manualManagerId !== null
+            && $normalizedJobTitle !== 'coordinator'
+            && $this->employeeMatchesAnyRole($manualManagerId, $parentRoles, $excludeEmployeeId)
+        ) {
+            return $manualManagerId;
+        }
 
         if ($normalizedJobTitle === 'coordinator') {
             if ($manualManagerId !== null) {
@@ -1391,37 +1446,70 @@ class EmployeeController extends Controller
                 }
             }
 
-            $baseSupervisorQuery = Employee::query()
-                ->whereRaw('LOWER(job_title) = ?', ['supervisor'])
+            return $this->resolveManagerIdByRoleHierarchy($parentRoles, $departmentId, $excludeEmployeeId);
+        }
+
+        if (
+            $currentManagerId !== null
+            && $this->employeeMatchesAnyRole($currentManagerId, $parentRoles, $excludeEmployeeId)
+        ) {
+            return $currentManagerId;
+        }
+
+        return $this->resolveManagerIdByRoleHierarchy($parentRoles, $departmentId, $excludeEmployeeId);
+    }
+
+    private function employeeMatchesAnyRole(int $employeeId, array $roles, ?int $excludeEmployeeId = null): bool
+    {
+        return Employee::query()
+            ->where('id', $employeeId)
+            ->whereRaw('LOWER(job_title) IN ('.implode(',', array_fill(0, count($roles), '?')).')', $roles)
+            ->when(
+                $excludeEmployeeId !== null,
+                fn ($query) => $query->where('id', '!=', $excludeEmployeeId),
+            )
+            ->exists();
+    }
+
+    private function resolveManagerIdByRoleHierarchy(
+        array $roles,
+        ?int $departmentId,
+        ?int $excludeEmployeeId = null
+    ): ?int {
+        foreach ($roles as $role) {
+            $normalizedRole = strtolower(trim((string) $role));
+            $isGlobalRole = in_array($normalizedRole, ['ceo', 'chief executive officer', 'gm', 'general manager'], true);
+
+            $query = Employee::query()
+                ->whereRaw('LOWER(job_title) = ?', [$normalizedRole])
                 ->when(
                     $excludeEmployeeId !== null,
-                    fn ($query) => $query->where('id', '!=', $excludeEmployeeId),
+                    fn ($builder) => $builder->where('id', '!=', $excludeEmployeeId),
                 );
 
-            $supervisorId = null;
-            if ($departmentId) {
-                $supervisorId = (clone $baseSupervisorQuery)
+            if ($departmentId && ! $isGlobalRole) {
+                $departmentScopedId = (clone $query)
                     ->where('department_id', $departmentId)
                     ->orderBy('id')
                     ->value('id');
+
+                if ($departmentScopedId) {
+                    return (int) $departmentScopedId;
+                }
+
+                continue;
             }
 
-            if (! $supervisorId) {
-                $supervisorId = (clone $baseSupervisorQuery)
-                    ->orderBy('id')
-                    ->value('id');
-            }
+            $managerId = $query
+                ->orderBy('id')
+                ->value('id');
 
-            if (! $supervisorId) {
-                throw ValidationException::withMessages([
-                    'job_title' => 'No Supervisor found. Please assign at least one Supervisor first.',
-                ]);
+            if ($managerId) {
+                return (int) $managerId;
             }
-
-            return (int) $supervisorId;
         }
 
-        return $currentManagerId;
+        return null;
     }
 
     private function generateEmployeeCode(): string

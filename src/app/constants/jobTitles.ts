@@ -1,8 +1,10 @@
 export const EMPLOYEE_JOB_TITLES = [
-  "Coordinator",
-  "Supervisor",
-  "Manager",
+  "CEO",
+  "GM",
   "Department manager",
+  "Manager",
+  "Supervisor",
+  "Coordinator",
 ] as const;
 
 export type EmployeeJobTitle = (typeof EMPLOYEE_JOB_TITLES)[number];
