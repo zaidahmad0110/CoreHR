@@ -1,343 +1,478 @@
+# CoreHR
 
-# SaaS HR System
+CoreHR is a full-stack Human Resources Management System for employee records, attendance, payroll, leave, recruitment, expenses, loans, performance, training, assets, notifications, and role-based access control.
 
-CoreHR is a comprehensive web-based Human Resources Management System designed for modern enterprises. Built with a React/TypeScript frontend and Laravel backend, it provides employee management, payroll processing, leave management, recruitment, and advanced HR analytics.
+The application is built as an existing React frontend connected to a Laravel API backend. The intended local/intranet setup is:
 
-**Design Reference:**
-
----
-
-## 🚀 Features
-
-- **Employee Management** - Comprehensive employee profiles, documents, and asset tracking
-- **Payroll Management** - Automated payroll processing with allowances and deductions
-- **Leave Management** - Leave request workflows with balance tracking
-- **Recruitment** - Job posting, candidate management, and application tracking
-- **Expense Management** - Employee expense claims with approval workflows
-- **Loan Management** - Loan request processing and tracking
-- **Performance Reviews** - Employee evaluation and feedback system
-- **Training & Development** - Training program enrollment and material management
-- **Attendance Tracking** - Real-time attendance and analytics
-- **Two-Factor Authentication** - Email OTP-based 2FA for enhanced security
-- **AI HR Assistant** - Rule-based or OpenAI-powered chatbot for HR queries
-- **Multi-branch Support** - Manage multiple organizational branches
-- **Email & SMS Notifications** - Automated messaging for key HR events
-- **Role-Based Access Control** - Fine-grained permission management
+- Frontend: React 18, TypeScript, Vite, React Router, Tailwind CSS v4, Radix UI, Recharts, Lucide React
+- Backend: Laravel 11, Laravel Sanctum, MySQL/MariaDB
+- Authentication: Bearer token API authentication
+- Optional integrations: Email/SMS notifications, BioTime/ZKTeco attendance sync
 
 ---
 
-## 🛠️ Tech Stack
+## Features
 
-### Frontend
-- **React 18** with TypeScript
-- **Vite** - Lightning fast build tool
-- **Tailwind CSS** - Utility-first styling
-- **ShadCN/UI** - Accessible component library
-- **TanStack Query** - Server state management
-- **React Router** - Client-side routing
-
-### Backend
-- **Laravel 11** - PHP web framework
-- **Laravel Sanctum** - API authentication
-- **MySQL** - Relational database
-- **Laravel Queue** - Async job processing
-- **Laravel Mail** - Email notifications
+- Employee management with profiles, documents, assets, managers, departments, branches, and user login creation
+- Attendance tracking with manual records and optional BioTime/ZKTeco sync
+- Leave requests with department-manager approval workflow
+- Payroll generation from salary, attendance days, allowances, deductions, and active loans
+- Payroll workflow with HR submission and Finance approval
+- Recruitment with public careers page, candidate applications, CV upload, ATS ranking, interviews, offers, and candidate status handling
+- Performance reviews with rating result mapping and multi-level review flow
+- Training and development with materials, enrollment, capacity checks, progress, and active/upcoming status
+- Expenses and loans with approval/rejection workflows and notifications
+- Company structure management for branches, departments, managers, and organization chart
+- Settings for company info, logo, notifications, payroll types, leave types, SMS/email config, and user privileges
+- Role-based permissions for Admin, HR, CEO, department managers, managers, supervisors, coordinators, and employees
 
 ---
 
-## 📋 Prerequisites
+## Requirements
 
-- **Node.js** 18+ (for frontend)
-- **PHP** 8.2+ (for backend)
-- **Composer** (PHP dependency manager)
-- **MySQL** 8.0+ (or compatible)
-- **Git**
+- Node.js 18+
+- PHP 8.2+
+- Composer
+- MySQL or MariaDB
+- Git
+- XAMPP is supported for local Windows development
 
 ---
 
-## 🚀 Quick Start
+## Local/Intranet Setup
 
-### 1. Install Frontend Dependencies
-```bash
+### 1. Install frontend dependencies
+
+```powershell
 npm install
 ```
 
-### 2. Install Backend Dependencies
-```bash
+### 2. Install backend dependencies
+
+```powershell
 cd backend
 composer install
 cd ..
 ```
 
-### 3. Configure Environment
-Copy the example environment files:
-```bash
-cp backend/.env.example backend/.env
-```
+If Composer is not globally installed, use the bundled composer file:
 
-Edit `backend/.env` with your configuration (database, mail, etc.)
-
-### 4. Generate Laravel Key
-```bash
+```powershell
 cd backend
-php artisan key:generate
+C:\xampp\php\php.exe ..\composer.phar install
 cd ..
 ```
 
-### 5. Run Migrations
-```bash
+### 3. Configure backend environment
+
+Create `backend/.env` from the example if it does not exist:
+
+```powershell
+copy backend\.env.example backend\.env
+```
+
+Recommended local database settings:
+
+```env
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=corehr_api
+DB_USERNAME=root
+DB_PASSWORD=
+
+FRONTEND_URL=http://localhost:5173
+```
+
+Create the database in MySQL/MariaDB:
+
+```sql
+CREATE DATABASE IF NOT EXISTS corehr_api
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+```
+
+### 4. Generate Laravel app key
+
+```powershell
 cd backend
-php artisan migrate
+C:\xampp\php\php.exe artisan key:generate
 cd ..
 ```
 
-### 6. Start Development Server
-```bash
-# Frontend (runs on http://localhost:5173)
-npm run dev
-```
+### 5. Run migrations and seed data
 
-In a new terminal:
-```bash
-# Backend (runs on http://localhost:8000)
+```powershell
 cd backend
-php artisan serve
+C:\xampp\php\php.exe artisan migrate
+C:\xampp\php\php.exe artisan db:seed
+cd ..
 ```
+
+If the local database was corrupted or tables are broken, recreate it cleanly:
+
+```powershell
+cd backend
+C:\xampp\php\php.exe artisan migrate:fresh --seed
+cd ..
+```
+
+### 6. Start the backend API
+
+```powershell
+cd backend
+C:\xampp\php\php.exe artisan serve --host=0.0.0.0 --port=8000
+```
+
+For intranet access from other devices, use the server machine IP, for example:
+
+```powershell
+C:\xampp\php\php.exe artisan serve --host=0.0.0.0 --port=8000
+```
+
+Then connect clients to:
+
+```text
+http://SERVER_IP:8000
+```
+
+### 7. Start the frontend
+
+In a second terminal:
+
+```powershell
+npm run dev -- --host 0.0.0.0
+```
+
+Local browser:
+
+```text
+http://localhost:5173
+```
+
+Intranet browser:
+
+```text
+http://SERVER_IP:5173
+```
+
+If the backend URL is not `http://localhost:8000`, create a frontend `.env` file:
+
+```env
+VITE_API_BASE_URL=http://SERVER_IP:8000
+```
+
+Restart the Vite dev server after changing frontend environment variables.
 
 ---
 
-## ⚙️ Configuration
+## Default Admin Access
 
-### Backend Messaging (Email & SMS)
+After seeding, use:
 
-The backend sends notifications during recruitment, leave requests, expense claims, and loan workflows.
-
-#### Email Configuration
-Configure in `backend/.env`:
-```env
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=your_username
-MAIL_PASSWORD=your_password
-MAIL_FROM_ADDRESS=noreply@corehr.app
-MAIL_FROM_NAME="CoreHR System"
+```text
+Email: admin@company.com
+Password: password
 ```
 
-#### SMS Configuration (Optional)
-Configure in `backend/.env`:
-```env
-SMS_GATEWAY_ENDPOINT=https://your-sms-provider.com/api/send
-SMS_GATEWAY_TOKEN=your_api_token
-SMS_GATEWAY_TIMEOUT=30
+If the admin user is missing or has no permissions, run this SQL:
+
+```sql
+START TRANSACTION;
+
+INSERT INTO users (
+    name,
+    email,
+    role,
+    password,
+    email_verified_at,
+    created_at,
+    updated_at
+)
+VALUES (
+    'CoreHR Admin',
+    'admin@company.com',
+    'Admin',
+    '$2y$10$ffVBAYqTrjXD30K8T7TCTevqy03LZH57hrRV3c/d9/jaB.MKiU8BG',
+    NOW(),
+    NOW(),
+    NOW()
+)
+ON DUPLICATE KEY UPDATE
+    name = 'CoreHR Admin',
+    role = 'Admin',
+    password = '$2y$10$ffVBAYqTrjXD30K8T7TCTevqy03LZH57hrRV3c/d9/jaB.MKiU8BG',
+    email_verified_at = COALESCE(email_verified_at, NOW()),
+    updated_at = NOW();
+
+DELETE FROM user_permission_overrides
+WHERE user_id = (
+    SELECT id FROM users WHERE email = 'admin@company.com' LIMIT 1
+);
+
+INSERT INTO user_permission_overrides (
+    user_id,
+    permissions,
+    terms,
+    created_at,
+    updated_at
+)
+SELECT
+    id,
+    JSON_OBJECT(
+        'dashboard', true,
+        'employees', true,
+        'attendance', true,
+        'leave', true,
+        'payroll', true,
+        'recruitment', true,
+        'performance', true,
+        'training', true,
+        'training_materials', true,
+        'assets', true,
+        'expenses', true,
+        'loans', true,
+        'company_structure', true,
+        'settings', true
+    ),
+    JSON_OBJECT(
+        'dashboard', 'accepted',
+        'employees', 'accepted',
+        'attendance', 'accepted',
+        'leave', 'accepted',
+        'payroll', 'accepted',
+        'recruitment', 'accepted',
+        'performance', 'accepted',
+        'training', 'accepted',
+        'training_materials', 'accepted',
+        'assets', 'accepted',
+        'expenses', 'accepted',
+        'loans', 'accepted',
+        'company_structure', 'accepted',
+        'settings', 'accepted'
+    ),
+    NOW(),
+    NOW()
+FROM users
+WHERE email = 'admin@company.com';
+
+COMMIT;
 ```
 
-If `SMS_GATEWAY_ENDPOINT` is empty, SMS messages are simulated and logged by Laravel.
-
-### Two-Factor Authentication
-
-Two-factor authentication (email OTP) can be enabled per user:
-1. Login to the application
-2. Navigate to **Settings → Security**
-3. Toggle **Enable Two-Factor Authentication**
-4. Follow the email verification process
-
-### AI HR Assistant (Optional OpenAI)
-
-The HR Assistant uses rule-based responses by default. To enable OpenAI integration:
-
-Configure in `backend/.env`:
-```env
-OPENAI_API_KEY=sk-your-api-key
-OPENAI_MODEL=gpt-4o-mini
-```
-
-Supported models: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`
+The password in this SQL is `password`.
 
 ---
 
-## 📚 Deployment Guides
-
-- **[Backend Deployment (Render)](./RENDER_DEPLOYMENT_CHECKLIST.md)** - Complete Render setup guide
-- **[Frontend Deployment (Vercel)](./VERCEL_DEPLOYMENT_GUIDE.md)** - Complete Vercel setup guide
-- **[Environment Configuration](./DEPLOYMENT_ENV_GUIDE.md)** - Detailed environment variable reference
-- **[CSRF Token & Cross-Domain Setup](./CSRF_FIX_SUMMARY.md)** - CORS and session configuration
-
----
-
-## 🔧 Development Commands
+## Development Commands
 
 ### Frontend
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview       # Preview production build
-npm run lint         # Run ESLint
+
+```powershell
+npm run dev
+npm run build
+npm run preview
 ```
 
 ### Backend
-```bash
+
+```powershell
 cd backend
+C:\xampp\php\php.exe artisan migrate
+C:\xampp\php\php.exe artisan db:seed
+C:\xampp\php\php.exe artisan optimize:clear
+C:\xampp\php\php.exe artisan route:list
+C:\xampp\php\php.exe artisan serve --host=0.0.0.0 --port=8000
+```
 
-# Migrations
-php artisan migrate              # Run migrations
-php artisan migrate:rollback     # Rollback migrations
-php artisan migrate:reset        # Reset all migrations
+### Clear Laravel caches
 
-# Tinker (interactive shell)
-php artisan tinker
-
-# Clear caches
-php artisan cache:clear
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-
-# Database seeding
-php artisan seed:run
-php artisan db:seed --class=EmployeeSeeder
+```powershell
+cd backend
+C:\xampp\php\php.exe artisan optimize:clear
 ```
 
 ---
 
-## 🗂️ Project Structure
+## API Configuration
 
+The frontend API client reads:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
 ```
+
+If this variable is missing, the frontend defaults to:
+
+```text
+http://localhost:8000
+```
+
+Common API endpoints:
+
+- `POST /api/login`
+- `POST /api/logout`
+- `GET /api/me`
+- `GET /api/public/jobs`
+- `GET /api/employees`
+- `POST /api/employees`
+- `GET /api/dashboard`
+- `GET /api/payroll`
+- `GET /api/notifications`
+
+Full routes are in:
+
+```text
+backend/routes/api.php
+```
+
+---
+
+## BioTime / ZKTeco Attendance Sync
+
+CoreHR can sync attendance from BioTime/ZKTeco using BioTime API credentials.
+
+Typical BioTime API token command:
+
+```powershell
+$body = @{
+  username = "YOUR_BIOTIME_USERNAME"
+  password = "YOUR_BIOTIME_PASSWORD"
+} | ConvertTo-Json -Compress
+
+curl.exe -X POST "http://127.0.0.1:8091/api-token-auth/" `
+  -H "Content-Type: application/json" `
+  --data-raw $body
+```
+
+Expected integration flow:
+
+- Store BioTime connection settings in CoreHR
+- Map BioTime `emp_code` to CoreHR employees
+- Sync BioTime transactions
+- Convert first punch to check-in and last punch to check-out
+- Update CoreHR attendance records
+
+---
+
+## Troubleshooting
+
+### Frontend is blank and shows `/src/main.tsx 404`
+
+Open the app using the Vite dev server, not directly through Apache:
+
+```text
+http://localhost:5173
+```
+
+Do not open:
+
+```text
+http://localhost:8080/CoreHR/
+```
+
+unless Apache is specifically configured to serve the built `dist` output.
+
+### `ERR_CONNECTION_REFUSED` for `localhost:8000`
+
+The Laravel backend is not running. Start it:
+
+```powershell
+cd backend
+C:\xampp\php\php.exe artisan serve --host=0.0.0.0 --port=8000
+```
+
+### `401 Unauthorized` on `/api/me`
+
+This is normal before login. If it happens after login:
+
+- Clear browser local storage for the app
+- Log in again
+- Confirm the frontend is using the correct `VITE_API_BASE_URL`
+- Confirm the backend has the user and permissions
+
+### `You do not have access to any modules`
+
+The logged-in user has no accepted permissions. Use the admin SQL above or update permissions from the User Privileges page.
+
+### `Unexpected token '<' is not valid JSON`
+
+The frontend received an HTML page instead of API JSON. Check:
+
+- `VITE_API_BASE_URL`
+- Backend server is running
+- API routes are reachable
+- No Apache/Vite/Railway rewrite is sending API calls to the frontend app
+
+### `Host is not allowed to connect to this MariaDB server`
+
+Allow the client host/user in MySQL/MariaDB or use `127.0.0.1` when running locally.
+
+For local XAMPP:
+
+```env
+DB_HOST=127.0.0.1
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### `Table ... doesn't exist in engine`
+
+The local database is likely corrupted. Recreate it:
+
+```powershell
+cd backend
+C:\xampp\php\php.exe artisan migrate:fresh --seed
+```
+
+---
+
+## Project Structure
+
+```text
 CoreHR/
-├── src/                          # Frontend (React + TypeScript)
-│   ├── app/
-│   │   ├── api/                  # API client & services
-│   │   ├── auth/                 # Authentication logic
-│   │   ├── components/           # Reusable React components
-│   │   ├── hooks/                # Custom React hooks
-│   │   ├── pages/                # Page components
-│   │   └── utils/                # Utility functions
-│   ├── styles/                   # Global styles & Tailwind
-│   └── main.tsx                  # Application entry point
-│
-├── backend/                       # Backend (Laravel)
-│   ├── app/
-│   │   ├── Http/
-│   │   │   ├── Controllers/      # API controllers
-│   │   │   ├── Middleware/       # Custom middleware
-│   │   │   └── Requests/         # Form request validation
-│   │   ├── Models/               # Database models
-│   │   └── Services/             # Business logic services
-│   ├── config/                   # Configuration files
-│   ├── database/
-│   │   ├── migrations/           # Database migrations
-│   │   └── seeders/              # Database seeders
-│   ├── routes/
-│   │   ├── api.php               # API routes
-│   │   └── web.php               # Web routes
-│   └── storage/                  # Logs, sessions, uploads
-│
-├── public/
-│   ├── templates/                # CSV import templates
-│   └── storage/                  # Public file storage
-│
-├── vite.config.ts                # Vite configuration
-├── tailwind.config.js            # Tailwind configuration
-├── package.json                  # Frontend dependencies
-└── README.md                      # This file
+  src/
+    app/
+      api/
+      auth/
+      components/
+      hooks/
+      pages/
+      utils/
+    main.tsx
+  backend/
+    app/
+      Http/
+      Models/
+      Services/
+    database/
+      migrations/
+      seeders/
+    routes/
+      api.php
+  public/
+  dist/
+  package.json
+  README.md
 ```
 
 ---
 
-## 🐞 Troubleshooting
+## Notes
 
-### CSRF Token Mismatch
-If you encounter "CSRF token mismatch" errors during cross-domain requests:
-- See [CSRF_FIX_SUMMARY.md](./CSRF_FIX_SUMMARY.md)
-- Check [QUICK_TROUBLESHOOTING.md](./QUICK_TROUBLESHOOTING.md)
-
-### Login Returns 419 Error
-This is typically a session/CSRF validation issue:
-- See [FIX_419_LOGIN_ERROR.md](./FIX_419_LOGIN_ERROR.md)
-
-### Database Connection Issues
-1. Verify database credentials in `backend/.env`
-2. Test connection: `cd backend && php artisan db:show`
-3. Check database server is running
-
-### Frontend Build Fails
-1. Clear node_modules: `rm -rf node_modules && npm install`
-2. Clear Vite cache: `rm -rf .vite`
-3. Check Node.js version: `node --version` (needs 18+)
+- Keep `backend/.env` out of commits unless intentionally changing shared configuration.
+- For intranet use, run both frontend and backend with `--host 0.0.0.0`.
+- After changing backend `.env`, run `php artisan optimize:clear`.
+- After changing frontend `.env`, restart Vite.
+- SMTP testing may fail in production/intranet networks if outbound SMTP ports are blocked by the host or ISP.
 
 ---
 
-## 📖 API Documentation
+## Version
 
-The backend provides a RESTful API with the following main endpoints:
+CoreHR V1
 
-### Authentication
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-- `GET /api/me` - Get current user
-
-### Employees
-- `GET /api/employees` - List employees
-- `POST /api/employees` - Create employee
-- `GET /api/employees/{id}` - Get employee details
-- `PATCH /api/employees/{id}` - Update employee
-
-### Payroll
-- `GET /api/payroll` - List payroll records
-- `POST /api/payroll` - Generate payroll
-- `GET /api/payroll/{id}` - Get payroll details
-
-### Leave Management
-- `GET /api/leave-requests` - List leave requests
-- `POST /api/leave-requests` - Create leave request
-- `PATCH /api/leave-requests/{id}/approve` - Approve leave
-- `PATCH /api/leave-requests/{id}/reject` - Reject leave
-
-### Recruitment
-- `GET /api/recruitment/jobs` - List job postings
-- `POST /api/recruitment/jobs` - Create job posting
-- `POST /api/recruitment/apply` - Apply for position
-- `GET /api/recruitment/candidates` - List candidates
-
-### Other
-- Complete API documentation available in backend routes: `backend/routes/api.php`
-
----
-
-## 🔐 Security
-
-- **CORS Enabled** - Configured for cross-origin requests from frontend
-- **CSRF Protection** - Laravel CSRF tokens on all state-changing requests
-- **Sanctum Authentication** - Stateful API authentication
-- **Password Hashing** - Bcrypt password hashing with 12 rounds
-- **Two-Factor Authentication** - Optional email OTP-based 2FA
-- **Role-Based Access Control** - Permission system for features
-
----
-
-## 📄 License
-
-This project is provided as-is for educational and commercial use.
-
----
-
-## 🤝 Contributing
-
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Commit changes: `git commit -am 'Add your feature'`
-3. Push to branch: `git push origin feature/your-feature`
-4. Submit a pull request
-
----
-
-## 💬 Support
-
-For issues, questions, or contribution ideas:
-- Check existing documentation in the root directory
-- Review troubleshooting guides
-- Check Render/Vercel deployment logs for detailed error messages
-
----
-
-**Last Updated:** March 2026  
-**Version:** 1.0.0
+Last updated: June 2026
