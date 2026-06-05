@@ -170,6 +170,43 @@ Restart the Vite dev server after changing frontend environment variables.
 
 ---
 
+## Run in Background on Windows
+
+Use this when you want CoreHR to run without terminal windows on the screen.
+
+Double-click:
+
+```text
+start-corehr-hidden.vbs
+```
+
+This starts:
+
+- Laravel backend on `http://localhost:8000`
+- Vite frontend on `http://localhost:5173`
+
+To stop both background processes, double-click:
+
+```text
+stop-corehr-hidden.vbs
+```
+
+Runtime logs and PID files are stored in:
+
+```text
+.corehr-runtime/
+```
+
+If PHP is not found automatically, set the PHP path once in Windows PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable("COREHR_PHP_PATH", "G:\xampp\php\php.exe", "User")
+```
+
+Then double-click `start-corehr-hidden.vbs` again.
+
+---
+
 ## Default Admin Access
 
 After seeding, use:

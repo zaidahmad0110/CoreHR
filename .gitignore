@@ -1,5 +1,6 @@
 node_modules
 /.vs/
+/.corehr-runtime/
 /.composer-cache/
 *.log
 *.zip
