@@ -49,6 +49,7 @@ export function Layout() {
   const { data: notifications, refetch: refetchNotifications } = useApiQuery(
     () => notificationService.getNotifications(),
     [],
+    { skip: !user },
   );
   const permissions = user?.permissions as UserPermissions | undefined;
   const shownBrowserNotificationsRef = useRef<Set<number>>(new Set());
@@ -218,6 +219,10 @@ export function Layout() {
     }
 
     const refreshNotifications = () => {
+      if (!user) {
+        return;
+      }
+
       void refetchNotifications();
     };
 
@@ -228,7 +233,7 @@ export function Layout() {
       window.clearInterval(intervalId);
       window.removeEventListener("corehr:notifications:refresh", refreshNotifications);
     };
-  }, [refetchNotifications]);
+  }, [refetchNotifications, user]);
 
   return (
     <div className={`flex min-h-screen bg-[#F8FAFC] ${isRtl ? "lg:flex-row-reverse" : ""}`}>

@@ -122,6 +122,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      authTokenStore.clear();
+    }
+
     const message =
       (parsed && "message" in parsed && parsed.message) || "Request failed. Please try again.";
     throw new ApiError(message, response.status);
