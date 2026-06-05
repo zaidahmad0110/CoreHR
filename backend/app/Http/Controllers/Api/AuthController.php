@@ -11,12 +11,15 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\MessagingService;
 use App\Services\UserPrivilegeService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -28,54 +31,83 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->validated();
-        $user = User::query()->where('email', $credentials['email'])->first();
+        try {
+            $credentials = $request->validated();
+            $user = User::query()->where('email', $credentials['email'])->first();
 
-        if (! $user || ! Hash::check($credentials['password'], (string) $user->password)) {
-            return response()->json([
-                'message' => 'Invalid email or password.',
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        if ((bool) $user->two_factor_enabled) {
-            $otpCode = trim((string) ($credentials['otp_code'] ?? ''));
-
-            if ($otpCode === '') {
-                $this->issueTwoFactorCode($user);
-
+            if (! $user || ! $this->validateAndUpgradePassword($user, (string) $credentials['password'])) {
                 return response()->json([
-                    'message' => 'A verification code was sent to your email.',
-                    'data' => [
-                        'two_factor_required' => true,
-                        'delivery_channel' => 'email',
-                        'email_hint' => $this->maskEmail($user->email),
-                        'expires_in_seconds' => 600,
-                    ],
-                ], Response::HTTP_ACCEPTED);
-            }
-
-            if (! $this->isValidTwoFactorCode($user, $otpCode)) {
-                return response()->json([
-                    'message' => 'Invalid or expired verification code.',
+                    'message' => 'Invalid email or password.',
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
-            $this->clearTwoFactorChallenge($user);
+            if ((bool) $user->two_factor_enabled) {
+                $otpCode = trim((string) ($credentials['otp_code'] ?? ''));
+
+                if ($otpCode === '') {
+                    $this->issueTwoFactorCode($user);
+
+                    return response()->json([
+                        'message' => 'A verification code was sent to your email.',
+                        'data' => [
+                            'two_factor_required' => true,
+                            'delivery_channel' => 'email',
+                            'email_hint' => $this->maskEmail($user->email),
+                            'expires_in_seconds' => 600,
+                        ],
+                    ], Response::HTTP_ACCEPTED);
+                }
+
+                if (! $this->isValidTwoFactorCode($user, $otpCode)) {
+                    return response()->json([
+                        'message' => 'Invalid or expired verification code.',
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                $this->clearTwoFactorChallenge($user);
+            }
+
+            $tokenName = sprintf('web-%s', now()->format('YmdHis'));
+            $plainTextToken = $user->createToken($tokenName)->plainTextToken;
+            $serializedUser = $this->serializeUser($user);
+
+            return response()->json([
+                'data' => [
+                    'user' => $serializedUser,
+                    'access_token' => $plainTextToken,
+                    'token_type' => 'Bearer',
+                ],
+            ]);
+        } catch (QueryException $exception) {
+            Log::error('Login failed due to database error.', [
+                'email' => $request->input('email'),
+                'sql_state' => $exception->getCode(),
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'error_type' => $exception::class,
+                'error_detail' => $exception->getMessage(),
+            ], Response::HTTP_SERVICE_UNAVAILABLE);
+        } catch (Throwable $exception) {
+            Log::error('Unexpected login failure.', [
+                'email' => $request->input('email'),
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error_type' => $exception::class,
+                'error_detail' => $exception->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        Auth::login($user, (bool) ($credentials['remember'] ?? false));
-        $request->session()->regenerate();
-
-        return response()->json([
-            'data' => $this->serializeUser($request->user()),
-        ]);
     }
-
     public function logout(Request $request): JsonResponse
     {
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        $user = $request->user();
+        if ($user && $user->currentAccessToken()) {
+            $user->currentAccessToken()->delete();
+        }
 
         return response()->json([
             'message' => 'Logged out successfully.',
@@ -210,6 +242,40 @@ class AuthController extends Controller
         }
 
         return Hash::check($code, (string) $user->two_factor_code_hash);
+    }
+
+    private function validateAndUpgradePassword(User $user, string $plainPassword): bool
+    {
+        $storedPassword = (string) $user->password;
+
+        try {
+            $isValid = Hash::check($plainPassword, $storedPassword);
+        } catch (RuntimeException) {
+            $passwordInfo = password_get_info($storedPassword);
+            $isKnownPhpHash = ($passwordInfo['algo'] ?? null) !== null && ($passwordInfo['algo'] ?? 0) !== 0;
+
+            if ($isKnownPhpHash) {
+                $isValid = password_verify($plainPassword, $storedPassword);
+            } else {
+                $isValid = hash_equals($storedPassword, $plainPassword);
+            }
+
+            if ($isValid) {
+                $user->forceFill([
+                    'password' => $plainPassword,
+                ])->save();
+            }
+
+            return $isValid;
+        }
+
+        if ($isValid && Hash::needsRehash($storedPassword)) {
+            $user->forceFill([
+                'password' => $plainPassword,
+            ])->save();
+        }
+
+        return $isValid;
     }
 
     private function clearTwoFactorChallenge(User $user): void

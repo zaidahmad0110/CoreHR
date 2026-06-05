@@ -20,10 +20,13 @@ use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TrainingController;
 use Illuminate\Support\Facades\Route;
 
-    Route::get('/public/jobs', [RecruitmentController::class, 'publicJobs']);
-    Route::post('/public/jobs/{jobPosting}/apply', [RecruitmentController::class, 'applyToPublicJob']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::get('/public/jobs', [RecruitmentController::class, 'publicJobs']);
+Route::post('/public/jobs/{jobPosting}/apply', [RecruitmentController::class, 'applyToPublicJob']);
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::patch('/auth/two-factor', [AuthController::class, 'updateTwoFactor']);
     Route::get('/privileges/me', [PrivilegeController::class, 'me']);
@@ -146,6 +149,8 @@ use Illuminate\Support\Facades\Route;
         Route::get('/settings', [SettingsController::class, 'index']);
         Route::patch('/settings/company', [SettingsController::class, 'updateCompany']);
         Route::patch('/settings/communications', [SettingsController::class, 'updateCommunications']);
+        Route::patch('/settings/biotime', [SettingsController::class, 'updateBioTime']);
+        Route::post('/settings/biotime/sync', [SettingsController::class, 'syncBioTime']);
         Route::patch('/settings/notifications', [SettingsController::class, 'updateNotifications']);
         Route::post('/settings/notifications/broadcast', [SettingsController::class, 'broadcastNotification']);
         Route::post('/settings/leave-types', [SettingsController::class, 'storeLeaveType']);

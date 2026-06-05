@@ -661,8 +661,34 @@ export interface SettingsData {
     expense_approvals: boolean;
     payroll_reminders: boolean;
   };
+  biotime: {
+    enabled: boolean;
+    base_url: string | null;
+    username: string | null;
+    password: string | null;
+    timeout: number | null;
+    last_sync_at: string | null;
+  };
   permissions: {
     can_manage: boolean;
+  };
+}
+
+export interface BioTimeSyncResult {
+  fetched: number;
+  imported: number;
+  attendance_updated: number;
+  unmatched_emp_codes: string[];
+  start_time: string;
+  end_time: string;
+  synced_at: string;
+}
+
+export interface CommunicationSettingsUpdateResult extends SettingsData["communications"] {
+  test_email?: {
+    status: "sent" | "failed" | "skipped" | "simulated";
+    recipient: string | null;
+    error: string | null;
   };
 }
 

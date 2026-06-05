@@ -2,6 +2,27 @@
 
 use Illuminate\Support\Str;
 
+$configuredSessionDomain = trim((string) env('SESSION_DOMAIN', ''));
+$appHost = parse_url((string) env('APP_URL', ''), PHP_URL_HOST);
+$frontendHosts = array_values(array_filter(array_map(
+    static function (string $value): string {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $host = parse_url($trimmed, PHP_URL_HOST);
+        return is_string($host) ? $host : $trimmed;
+    },
+    explode(',', (string) env('FRONTEND_URL', ''))
+)));
+
+$resolvedSessionDomain = $configuredSessionDomain;
+
+if ($resolvedSessionDomain === '' || in_array($resolvedSessionDomain, $frontendHosts, true)) {
+    $resolvedSessionDomain = is_string($appHost) && $appHost !== '' ? $appHost : null;
+}
+
 return [
 
     /*
@@ -156,7 +177,7 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    'domain' => $resolvedSessionDomain,
 
     /*
     |--------------------------------------------------------------------------
@@ -169,7 +190,7 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    'secure' => env('SESSION_SECURE_COOKIE', true),
 
     /*
     |--------------------------------------------------------------------------
@@ -199,7 +220,7 @@ return [
     |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    'same_site' => env('SESSION_SAME_SITE', 'none'),
 
     /*
     |--------------------------------------------------------------------------
@@ -213,9 +234,4 @@ return [
     */
 
     'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
-
-
-    'secure' => env('SESSION_SECURE_COOKIE', false),
-
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
 ];

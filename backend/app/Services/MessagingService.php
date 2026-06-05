@@ -100,6 +100,38 @@ class MessagingService
         }
 
         $emailConfig = $this->resolveEmailConfig();
+        if ($emailConfig['mailer'] === 'smtp' && $emailConfig['host'] === '') {
+            Log::warning('Email dispatch skipped because SMTP host is missing.', [
+                'to' => $to,
+                'subject' => $subject,
+                'context' => $context,
+            ]);
+
+            return [
+                'channel' => 'email',
+                'status' => 'failed',
+                'meta' => [
+                    'error' => 'SMTP host is not configured.',
+                ],
+            ];
+        }
+
+        if ($emailConfig['mailer'] === 'smtp' && $emailConfig['from_address'] === '') {
+            Log::warning('Email dispatch skipped because SMTP from address is missing.', [
+                'to' => $to,
+                'subject' => $subject,
+                'context' => $context,
+            ]);
+
+            return [
+                'channel' => 'email',
+                'status' => 'failed',
+                'meta' => [
+                    'error' => 'SMTP from address is not configured.',
+                ],
+            ];
+        }
+
         $this->applyDynamicMailConfig($emailConfig);
         $emailBody = $this->composeEmailBody($message, $context);
         $attachments = $this->normalizeEmailAttachments($context['attachments'] ?? []);
@@ -226,7 +258,7 @@ class MessagingService
     }
 
     /**
-     * @return array{mailer:string,host:string,port:int,username:string,password:string,encryption:?string,from_address:string,from_name:string}
+     * @return array{mailer:string,host:string,port:int,timeout:int,username:string,password:string,encryption:?string,from_address:string,from_name:string}
      */
     private function resolveEmailConfig(): array
     {
@@ -239,10 +271,26 @@ class MessagingService
             $encryption = null;
         }
 
+        $host = trim((string) ($settings?->mail_host ?? ''));
+        if ($host === '') {
+            $host = trim((string) config('mail.mailers.smtp.host', ''));
+        }
+
+        $port = (int) ($settings?->mail_port ?? config('mail.mailers.smtp.port', 587));
+        if ($port < 1) {
+            $port = 587;
+        }
+
+        $timeout = (int) config('mail.mailers.smtp.timeout', 10);
+        if ($timeout < 1) {
+            $timeout = 10;
+        }
+
         return [
             'mailer' => $mailer,
-            'host' => trim((string) ($settings?->mail_host ?? config('mail.mailers.smtp.host', ''))),
-            'port' => max((int) ($settings?->mail_port ?? config('mail.mailers.smtp.port', 587)), 1),
+            'host' => $host,
+            'port' => $port,
+            'timeout' => $timeout,
             'username' => trim((string) ($settings?->mail_username ?? config('mail.mailers.smtp.username', ''))),
             'password' => trim((string) ($settings?->mail_password ?? config('mail.mailers.smtp.password', ''))),
             'encryption' => $encryption,
@@ -252,7 +300,7 @@ class MessagingService
     }
 
     /**
-     * @param  array{mailer:string,host:string,port:int,username:string,password:string,encryption:?string,from_address:string,from_name:string}  $emailConfig
+     * @param  array{mailer:string,host:string,port:int,timeout:int,username:string,password:string,encryption:?string,from_address:string,from_name:string}  $emailConfig
      */
     private function applyDynamicMailConfig(array $emailConfig): void
     {
@@ -260,6 +308,7 @@ class MessagingService
             'mail.default' => $emailConfig['mailer'],
             'mail.mailers.smtp.host' => $emailConfig['host'],
             'mail.mailers.smtp.port' => $emailConfig['port'],
+            'mail.mailers.smtp.timeout' => $emailConfig['timeout'],
             'mail.mailers.smtp.username' => $emailConfig['username'] !== '' ? $emailConfig['username'] : null,
             'mail.mailers.smtp.password' => $emailConfig['password'] !== '' ? $emailConfig['password'] : null,
             'mail.mailers.smtp.encryption' => $emailConfig['encryption'],

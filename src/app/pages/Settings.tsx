@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, Plus } from "lucide-react";
+import { RefreshCw, Save, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -61,6 +61,14 @@ type BroadcastNotificationFormState = {
   includeSender: boolean;
 };
 
+type BioTimeFormState = {
+  enabled: boolean;
+  base_url: string;
+  username: string;
+  password: string;
+  timeout: string;
+};
+
 const defaultCompanyFormState: CompanyFormState = {
   name: "",
   email: "",
@@ -100,6 +108,14 @@ const defaultBroadcastNotificationFormState: BroadcastNotificationFormState = {
   includeSender: true,
 };
 
+const defaultBioTimeFormState: BioTimeFormState = {
+  enabled: false,
+  base_url: "",
+  username: "",
+  password: "",
+  timeout: "20",
+};
+
 const parsePromptNumber = (value: string | null): number | null => {
   if (value === null) return null;
   const parsed = Number(value);
@@ -110,6 +126,7 @@ export function Settings() {
   const { refreshUser } = useAuth();
   const { setLanguage } = useI18n();
   const { data, loading, error, refetch } = useApiQuery(() => settingsService.getSettings(), []);
+  const smtpUnavailableInProduction = import.meta.env.PROD;
   const [companyForm, setCompanyForm] = useState<CompanyFormState>(defaultCompanyFormState);
   const [notificationForm, setNotificationForm] = useState<SettingsData["notifications"]>(
     defaultNotificationPreferences,
@@ -117,8 +134,11 @@ export function Settings() {
   const [communicationForm, setCommunicationForm] = useState<CommunicationFormState>(
     defaultCommunicationFormState,
   );
+  const [bioTimeForm, setBioTimeForm] = useState<BioTimeFormState>(defaultBioTimeFormState);
   const [companySaving, setCompanySaving] = useState(false);
   const [communicationSaving, setCommunicationSaving] = useState(false);
+  const [bioTimeSaving, setBioTimeSaving] = useState(false);
+  const [bioTimeSyncing, setBioTimeSyncing] = useState(false);
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [broadcastNotificationForm, setBroadcastNotificationForm] = useState<BroadcastNotificationFormState>(
     defaultBroadcastNotificationFormState,
@@ -157,6 +177,13 @@ export function Settings() {
         : "10",
     });
     setNotificationForm(data.notifications);
+    setBioTimeForm({
+      enabled: data.biotime.enabled,
+      base_url: data.biotime.base_url ?? "",
+      username: data.biotime.username ?? "",
+      password: data.biotime.password ?? "",
+      timeout: data.biotime.timeout != null ? String(data.biotime.timeout) : "20",
+    });
   }, [data]);
 
   useEffect(() => {
@@ -252,7 +279,7 @@ export function Settings() {
   const handleSaveCommunications = async () => {
     setCommunicationSaving(true);
     await runAction(async () => {
-      await settingsService.updateCommunications({
+      const result = await settingsService.updateCommunications({
         mail_mailer: communicationForm.mail_mailer.trim() || null,
         mail_host: communicationForm.mail_host.trim() || null,
         mail_port: communicationForm.mail_port.trim() ? Number(communicationForm.mail_port.trim()) : null,
@@ -267,8 +294,49 @@ export function Settings() {
           ? Number(communicationForm.sms_gateway_timeout.trim())
           : 10,
       });
+
+      if (result.test_email?.status === "sent") {
+        window.alert(`SMTP test email sent to ${result.test_email.recipient}.`);
+      } else if (result.test_email?.status === "simulated") {
+        window.alert("Email settings saved. Mail delivery is currently simulated.");
+      } else if (result.test_email?.status === "failed") {
+        window.alert(
+          result.test_email.error
+            ? `Email settings saved, but the SMTP test email failed: ${result.test_email.error}`
+            : "Email settings saved, but the SMTP test email failed.",
+        );
+      }
     });
     setCommunicationSaving(false);
+  };
+
+  const handleSaveBioTime = async () => {
+    setBioTimeSaving(true);
+    await runAction(async () => {
+      await settingsService.updateBioTime({
+        enabled: bioTimeForm.enabled,
+        base_url: bioTimeForm.base_url.trim() || null,
+        username: bioTimeForm.username.trim() || null,
+        password: bioTimeForm.password.trim() || null,
+        timeout: bioTimeForm.timeout.trim() ? Number(bioTimeForm.timeout.trim()) : 20,
+      });
+    });
+    setBioTimeSaving(false);
+  };
+
+  const handleSyncBioTime = async () => {
+    setBioTimeSyncing(true);
+    await runAction(async () => {
+      const result = await settingsService.syncBioTime();
+      const unmatched = result.unmatched_emp_codes.length > 0
+        ? ` Unmatched BioTime employee codes: ${result.unmatched_emp_codes.join(", ")}.`
+        : "";
+
+      window.alert(
+        `BioTime sync completed. Fetched ${result.fetched}, imported ${result.imported}, updated ${result.attendance_updated} attendance records.${unmatched}`,
+      );
+    });
+    setBioTimeSyncing(false);
   };
 
   const handleUpsertLeaveType = async (item?: SettingsData["leave_types"][number]) => {
@@ -353,6 +421,7 @@ export function Settings() {
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="communications">Email & SMS</TabsTrigger>
+          <TabsTrigger value="biotime">BioTime</TabsTrigger>
           <TabsTrigger value="leave">Leave Types</TabsTrigger>
           <TabsTrigger value="payroll">Payroll Settings</TabsTrigger>
           <TabsTrigger value="holidays">Holidays</TabsTrigger>
@@ -518,6 +587,11 @@ export function Settings() {
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900">Email (SMTP)</h3>
+                {smtpUnavailableInProduction && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    SMTP email delivery is not working in production mode on the current hosting environment.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="mail-mailer">Mailer</Label>
@@ -577,6 +651,103 @@ export function Settings() {
                   <Save className="w-4 h-4 mr-2" />
                   {communicationSaving ? "Saving..." : "Save Communication Settings"}
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="biotime" className="space-y-6">
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle>ZKTeco BioTime Integration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <div className="font-medium text-gray-900">Enable BioTime Sync</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    Pull attendance punches from BioTime and update CoreHR attendance.
+                  </div>
+                </div>
+                <Switch
+                  checked={bioTimeForm.enabled}
+                  disabled={loading || !canManageSettings || bioTimeSaving}
+                  onCheckedChange={(checked) => setBioTimeForm((prev) => ({ ...prev, enabled: checked }))}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="biotime-base-url">BioTime Base URL</Label>
+                  <Input
+                    id="biotime-base-url"
+                    className="mt-2"
+                    placeholder="http://127.0.0.1:8091"
+                    disabled={loading || !canManageSettings || bioTimeSaving}
+                    value={bioTimeForm.base_url}
+                    onChange={(event) => setBioTimeForm((prev) => ({ ...prev, base_url: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="biotime-timeout">Timeout (seconds)</Label>
+                  <Input
+                    id="biotime-timeout"
+                    type="number"
+                    className="mt-2"
+                    disabled={loading || !canManageSettings || bioTimeSaving}
+                    value={bioTimeForm.timeout}
+                    onChange={(event) => setBioTimeForm((prev) => ({ ...prev, timeout: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="biotime-username">Username</Label>
+                  <Input
+                    id="biotime-username"
+                    className="mt-2"
+                    disabled={loading || !canManageSettings || bioTimeSaving}
+                    value={bioTimeForm.username}
+                    onChange={(event) => setBioTimeForm((prev) => ({ ...prev, username: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="biotime-password">Password</Label>
+                  <Input
+                    id="biotime-password"
+                    type="password"
+                    className="mt-2"
+                    disabled={loading || !canManageSettings || bioTimeSaving}
+                    value={bioTimeForm.password}
+                    onChange={(event) => setBioTimeForm((prev) => ({ ...prev, password: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                Employee matching uses BioTime Employee Code. CoreHR checks biotime_emp_code first, then employee_code.
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                <div className="text-sm text-gray-600">
+                  Last sync: {data?.biotime.last_sync_at ?? "Never"}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    disabled={loading || !canManageSettings || bioTimeSaving || bioTimeSyncing}
+                    onClick={() => void handleSyncBioTime()}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {bioTimeSyncing ? "Syncing..." : "Sync Now"}
+                  </Button>
+                  <Button
+                    className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
+                    disabled={loading || !canManageSettings || bioTimeSaving || bioTimeSyncing}
+                    onClick={() => void handleSaveBioTime()}
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {bioTimeSaving ? "Saving..." : "Save BioTime Settings"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

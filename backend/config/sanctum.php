@@ -2,17 +2,49 @@
 
 use Laravel\Sanctum\Sanctum;
 
+$defaultStatefulDomains = [
+    'localhost:5173',
+    'localhost',
+    'localhost:3000',
+    '127.0.0.1',
+    '127.0.0.1:8000',
+    '127.0.0.1:5173',
+    '::1',
+];
+
+$configuredStatefulDomains = array_values(array_filter(array_map(
+    static fn (string $value): string => trim($value),
+    explode(',', (string) env('SANCTUM_STATEFUL_DOMAINS', ''))
+)));
+
+$frontendHosts = array_values(array_filter(array_map(
+    static function (string $value): string {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $host = parse_url($trimmed, PHP_URL_HOST);
+        $port = parse_url($trimmed, PHP_URL_PORT);
+
+        if (! is_string($host) || $host === '') {
+            return $trimmed;
+        }
+
+        return $port ? "{$host}:{$port}" : $host;
+    },
+    explode(',', (string) env('FRONTEND_URL', ''))
+)));
+
+$statefulDomains = implode(',', array_values(array_unique(array_merge(
+    $defaultStatefulDomains,
+    $configuredStatefulDomains,
+    $frontendHosts,
+))));
+
 return [
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', implode(',', [
-        'localhost:5173',    
-        'localhost',
-        'localhost:3000',
-        '127.0.0.1',
-        '127.0.0.1:8000',
-        '127.0.0.1:5173',
-        '::1',
-    ]))),
+    'stateful' => explode(',', $statefulDomains),
 
     /*
     |--------------------------------------------------------------------------

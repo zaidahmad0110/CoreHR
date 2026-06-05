@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { authTokenStore } from "../api/client";
 import { authService } from "../api/services";
 import type { AuthUser } from "../api/types";
 
@@ -21,13 +22,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const authRequestVersionRef = useRef(0);
 
   const refreshUser = async () => {
+    const token = authTokenStore.get();
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
+    const requestVersion = ++authRequestVersionRef.current;
+
     try {
       const me = await authService.me();
-      setUser(me);
+      if (authRequestVersionRef.current === requestVersion && authTokenStore.get() === token) {
+        setUser(me);
+      }
     } catch {
-      setUser(null);
+      if (authRequestVersionRef.current === requestVersion && authTokenStore.get() === token) {
+        authTokenStore.clear();
+        setUser(null);
+      }
     }
   };
 
@@ -47,6 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     remember: boolean;
     otp_code?: string;
   }) => {
+    authRequestVersionRef.current += 1;
+    authTokenStore.clear();
+
     const loggedInUser = await authService.login(payload);
 
     if ("two_factor_required" in loggedInUser && loggedInUser.two_factor_required) {
@@ -56,7 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    setUser(loggedInUser);
+    authTokenStore.set(loggedInUser.access_token);
+    if (!authTokenStore.get()) {
+      throw new Error("Login succeeded, but the browser did not store the access token.");
+    }
+
+    authRequestVersionRef.current += 1;
+    setUser(loggedInUser.user);
 
     return {
       twoFactorRequired: false,
@@ -64,7 +88,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch {
+      // Local sign-out should always complete even if server token is already invalid.
+    } finally {
+      authRequestVersionRef.current += 1;
+      authTokenStore.clear();
+    }
+
     setUser(null);
   };
 

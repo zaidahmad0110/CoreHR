@@ -1,9 +1,10 @@
-import { apiFileRequest, apiRequest, ensureCsrfCookie } from "./client";
+import { apiFileRequest, apiRequest } from "./client";
 import type {
   AssetsData,
   ExpensesData,
   LoansData,
   AttendanceData,
+  BioTimeSyncResult,
   AuthTwoFactorChallenge,
   AuthUser,
   BranchItem,
@@ -29,6 +30,7 @@ import type {
   RecruitmentData,
   RecruitmentJobDetails,
   SettingsData,
+  CommunicationSettingsUpdateResult,
   UserPermissionTerms,
   UserPermissions,
   UserPrivilegesData,
@@ -53,6 +55,12 @@ export interface EmployeeMutationPayload {
   user_password?: string;
 }
 
+export interface AuthLoginSuccess {
+  user: AuthUser;
+  access_token: string;
+  token_type: "Bearer";
+}
+
 const toQueryString = (params: Record<string, string | undefined>) => {
   const searchParams = new URLSearchParams();
 
@@ -68,8 +76,7 @@ const toQueryString = (params: Record<string, string | undefined>) => {
 
 export const authService = {
   async login(payload: { email: string; password: string; remember: boolean; otp_code?: string }) {
-    await ensureCsrfCookie();
-    return apiRequest<AuthUser | AuthTwoFactorChallenge>("/api/login", {
+    return apiRequest<AuthLoginSuccess | AuthTwoFactorChallenge>("/api/login", {
       method: "POST",
       body: payload,
     });
@@ -814,9 +821,21 @@ export const settingsService = {
     });
   },
   updateCommunications(payload: SettingsData["communications"]) {
-    return apiRequest<SettingsData["communications"]>("/api/settings/communications", {
+    return apiRequest<CommunicationSettingsUpdateResult>("/api/settings/communications", {
       method: "PATCH",
       body: payload,
+    });
+  },
+  updateBioTime(payload: Omit<SettingsData["biotime"], "last_sync_at">) {
+    return apiRequest<SettingsData["biotime"]>("/api/settings/biotime", {
+      method: "PATCH",
+      body: payload,
+    });
+  },
+  syncBioTime(payload?: { start_time?: string; end_time?: string }) {
+    return apiRequest<BioTimeSyncResult>("/api/settings/biotime/sync", {
+      method: "POST",
+      body: payload ?? {},
     });
   },
   updateNotifications(payload: SettingsData["notifications"]) {

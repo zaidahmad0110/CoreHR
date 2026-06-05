@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\BroadcastNotificationRequest;
 use App\Http\Requests\Api\UpdateCompanySettingsRequest;
 use App\Http\Requests\Api\UpdateCommunicationSettingsRequest;
+use App\Http\Requests\Api\UpdateBioTimeSettingsRequest;
 use App\Http\Requests\Api\UpdateNotificationPreferencesRequest;
 use App\Http\Requests\Api\UpsertAllowanceTypeRequest;
 use App\Http\Requests\Api\UpsertDeductionTypeRequest;
@@ -17,15 +18,21 @@ use App\Models\Holiday;
 use App\Models\LeaveType;
 use App\Models\PayrollAllowanceType;
 use App\Models\PayrollDeductionType;
+use App\Services\MessagingService;
+use App\Services\BioTimeSyncService;
 use App\Services\NotificationService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
 {
-    public function __construct(private readonly NotificationService $notificationService)
-    {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+        private readonly MessagingService $messagingService,
+        private readonly BioTimeSyncService $bioTimeSyncService,
+    ) {
     }
 
     private const DEFAULT_COMPANY_SETTINGS = [
@@ -46,6 +53,12 @@ class SettingsController extends Controller
         'sms_gateway_endpoint' => null,
         'sms_gateway_token' => null,
         'sms_gateway_timeout' => 10,
+        'biotime_enabled' => false,
+        'biotime_base_url' => null,
+        'biotime_username' => null,
+        'biotime_password' => null,
+        'biotime_timeout' => 20,
+        'biotime_last_sync_at' => null,
         'notify_leave_requests' => true,
         'notify_attendance_alerts' => true,
         'notify_expense_approvals' => true,
@@ -122,6 +135,7 @@ class SettingsController extends Controller
                     'expense_approvals' => (bool) $companySetting->notify_expense_approvals,
                     'payroll_reminders' => (bool) $companySetting->notify_payroll_reminders,
                 ],
+                'biotime' => $this->serializeBioTimeSettings($companySetting),
                 'permissions' => [
                     'can_manage' => $this->userCanManageSettings($request),
                 ],
@@ -235,9 +249,80 @@ class SettingsController extends Controller
                 : 10,
         ]);
 
+        $testEmailResult = [
+            'status' => 'skipped',
+            'recipient' => null,
+            'error' => null,
+        ];
+
+        $actorEmail = $this->nullableTrimmed((string) ($request->user()?->email ?? ''));
+        $configuredMailer = strtolower((string) ($companySetting->mail_mailer ?? ''));
+
+        if ($configuredMailer === 'smtp' && $actorEmail !== null) {
+            $delivery = $this->messagingService->send(
+                'email',
+                $actorEmail,
+                null,
+                'CoreHR SMTP configuration test',
+                "Your SMTP settings were saved successfully. This is a test email from CoreHR to confirm outbound email delivery is working.",
+                [
+                    'scope' => 'settings_mail_test',
+                ],
+            );
+
+            $testEmailResult = [
+                'status' => $delivery['status'],
+                'recipient' => $actorEmail,
+                'error' => isset($delivery['meta']['error']) ? (string) $delivery['meta']['error'] : null,
+            ];
+        }
+
         return response()->json([
             'message' => 'Email and SMS configuration updated successfully.',
-            'data' => $this->serializeCommunicationSettings($companySetting),
+            'data' => [
+                ...$this->serializeCommunicationSettings($companySetting),
+                'test_email' => $testEmailResult,
+            ],
+        ]);
+    }
+
+    public function updateBioTime(UpdateBioTimeSettingsRequest $request): JsonResponse
+    {
+        $this->ensureSettingsManagementPermission($request);
+
+        $payload = $request->validated();
+        $companySetting = $this->resolveCompanySetting();
+        $companySetting->update([
+            'biotime_enabled' => (bool) ($payload['enabled'] ?? false),
+            'biotime_base_url' => $this->nullableTrimmed($payload['base_url'] ?? null),
+            'biotime_username' => $this->nullableTrimmed($payload['username'] ?? null),
+            'biotime_password' => $this->nullableTrimmed($payload['password'] ?? null),
+            'biotime_timeout' => isset($payload['timeout']) ? (int) $payload['timeout'] : 20,
+        ]);
+
+        return response()->json([
+            'message' => 'BioTime settings updated successfully.',
+            'data' => $this->serializeBioTimeSettings($companySetting),
+        ]);
+    }
+
+    public function syncBioTime(Request $request): JsonResponse
+    {
+        $this->ensureSettingsManagementPermission($request);
+
+        $validated = $request->validate([
+            'start_time' => ['nullable', 'date'],
+            'end_time' => ['nullable', 'date'],
+        ]);
+
+        $result = $this->bioTimeSyncService->sync(
+            isset($validated['start_time']) ? Carbon::parse((string) $validated['start_time']) : null,
+            isset($validated['end_time']) ? Carbon::parse((string) $validated['end_time']) : null,
+        );
+
+        return response()->json([
+            'message' => 'BioTime attendance sync completed successfully.',
+            'data' => $result,
         ]);
     }
 
@@ -559,6 +644,18 @@ class SettingsController extends Controller
             'sms_gateway_endpoint' => $companySetting->sms_gateway_endpoint,
             'sms_gateway_token' => $companySetting->sms_gateway_token,
             'sms_gateway_timeout' => $companySetting->sms_gateway_timeout ?? 10,
+        ];
+    }
+
+    private function serializeBioTimeSettings(CompanySetting $companySetting): array
+    {
+        return [
+            'enabled' => (bool) $companySetting->biotime_enabled,
+            'base_url' => $companySetting->biotime_base_url,
+            'username' => $companySetting->biotime_username,
+            'password' => $companySetting->biotime_password,
+            'timeout' => $companySetting->biotime_timeout ?? 20,
+            'last_sync_at' => $companySetting->biotime_last_sync_at?->toDateTimeString(),
         ];
     }
 
