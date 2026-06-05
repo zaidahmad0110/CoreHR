@@ -75,6 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     authTokenStore.set(loggedInUser.access_token);
+    if (!authTokenStore.get()) {
+      throw new Error("Login succeeded, but the browser did not store the access token.");
+    }
+
     authRequestVersionRef.current += 1;
     setUser(loggedInUser.user);
 

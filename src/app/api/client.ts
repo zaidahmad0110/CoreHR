@@ -2,6 +2,7 @@ import type { ApiResponse } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const AUTH_TOKEN_STORAGE_KEY = "corehr_auth_token";
+let inMemoryAuthToken: string | null = null;
 
 const buildUrl = (path: string) =>
   path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
@@ -13,13 +14,17 @@ const looksLikeHtml = (value: string) => {
 
 export const authTokenStore = {
   get() {
-    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ?? sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ?? inMemoryAuthToken;
   },
   set(token: string) {
+    inMemoryAuthToken = token;
     localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+    sessionStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
   },
   clear() {
+    inMemoryAuthToken = null;
     localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
   },
 };
 
