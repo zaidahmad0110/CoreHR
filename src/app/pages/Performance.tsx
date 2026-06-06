@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { employeeService, performanceService } from "../api/services";
+import { performanceService } from "../api/services";
 import { useApiQuery } from "../hooks/useApiQuery";
 import { useAuth } from "../auth/AuthContext";
 
@@ -102,11 +102,6 @@ export function Performance() {
     [reviewTypeFilter],
   );
 
-  const { data: employeesData } = useApiQuery(
-    () => employeeService.getEmployees({}),
-    [],
-  );
-
   const reviews = data?.reviews ?? [];
   const stats = data?.stats ?? {
     average_rating: 0,
@@ -124,29 +119,7 @@ export function Performance() {
     employees: [],
   };
 
-  const employeeOptions = employeesData ?? [];
-  const creatableEmployeeOptions = useMemo(() => {
-    const actorJobTitle = (user?.job_title ?? "").toLowerCase().trim();
-
-    if (actorJobTitle !== "supervisor") {
-      return employeeOptions;
-    }
-
-    const actorEmployeeId = user?.employee_profile_id
-      ?? employeeOptions.find(
-        (employee) => employee.email.toLowerCase() === (user?.email ?? "").toLowerCase(),
-      )?.id
-      ?? null;
-    if (!actorEmployeeId) {
-      return [];
-    }
-
-    return employeeOptions.filter(
-      (employee) =>
-        employee.job_title.toLowerCase().trim() === "coordinator"
-        && (employee.manager_id ?? null) === actorEmployeeId,
-    );
-  }, [employeeOptions, user?.employee_profile_id, user?.job_title]);
+  const creatableEmployeeOptions = data?.creatable_employees ?? [];
   const canCreateReview = useMemo(() => {
     if (!user) {
       return false;

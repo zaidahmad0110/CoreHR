@@ -475,6 +475,7 @@ export interface PerformanceData {
       recommended_action: string;
     }>;
   };
+  creatable_employees: EmployeeListItem[];
   reviews: PerformanceReviewItem[];
 }
 

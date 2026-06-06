@@ -48,6 +48,7 @@ class PerformanceService
                 'top_performers' => $reviews->where('rating', '>=', 4.5)->count(),
             ],
             'predictive_analytics' => $this->predictiveAnalyticsService->buildEmployeePerformancePredictions(),
+            'creatable_employees' => $this->buildCreatableEmployees($context),
             'reviews' => $reviews
                 ->map(fn (PerformanceReview $review): array => $this->serializeReview($review, $context))
                 ->values(),
@@ -405,9 +406,61 @@ class PerformanceService
             return;
         }
 
-        if ($actorDepartmentId <= 0 || (int) ($employee->department_id ?? 0) !== $actorDepartmentId) {
-            throw new AuthorizationException('You are not authorized to create reviews outside your department.');
+        $reviewDepartmentId = (int) ($employee->department_id ?? 0);
+
+        if ($reviewDepartmentId > 0 && in_array($reviewDepartmentId, $context['managed_department_ids'], true)) {
+            return;
         }
+
+        if ($actorDepartmentId > 0 && $reviewDepartmentId === $actorDepartmentId) {
+            return;
+        }
+
+        throw new AuthorizationException('You are not authorized to create reviews outside your managed departments.');
+    }
+
+    private function buildCreatableEmployees(array $context): array
+    {
+        $actorEmployeeId = (int) ($context['employee_id'] ?? 0);
+        $actorDepartmentId = (int) ($context['actor_department_id'] ?? 0);
+        $actorJobTitle = $this->normalizeJobTitle($context['actor_job_title'] ?? null);
+
+        if (! in_array($actorJobTitle, ['supervisor', 'manager', 'department manager'], true) || $actorEmployeeId <= 0) {
+            return [];
+        }
+
+        $query = Employee::query()
+            ->with('department:id,name')
+            ->select(['id', 'name', 'email', 'job_title', 'manager_id', 'department_id'])
+            ->where('id', '!=', $actorEmployeeId)
+            ->orderBy('name');
+
+        if ($actorJobTitle === 'supervisor') {
+            $query
+                ->whereRaw('LOWER(job_title) = ?', ['coordinator'])
+                ->where('manager_id', $actorEmployeeId);
+        } elseif ($context['managed_department_ids'] !== []) {
+            $query->whereIn('department_id', $context['managed_department_ids']);
+        } elseif ($actorDepartmentId > 0) {
+            $query->where('department_id', $actorDepartmentId);
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        return $query
+            ->get()
+            ->map(fn (Employee $employee): array => [
+                'id' => (int) $employee->id,
+                'name' => (string) $employee->name,
+                'email' => (string) $employee->email,
+                'job_title' => (string) $employee->job_title,
+                'manager_id' => $employee->manager_id ? (int) $employee->manager_id : null,
+                'department' => $employee->department?->name ?? 'N/A',
+                'status' => (string) $employee->status,
+                'join_date' => $employee->join_date?->format('Y-m-d') ?? '',
+            ])
+            ->values()
+            ->all();
     }
 
     private function canDepartmentReview(PerformanceReview $review, array $context): bool
