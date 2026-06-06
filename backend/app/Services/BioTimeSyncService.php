@@ -195,13 +195,17 @@ class BioTimeSyncService
             ->get()
             ->groupBy(fn (BioTimePunchLog $log): string => $log->employee_id.'|'.$log->punch_time->toDateString())
             ->each(function (Collection $logs) use (&$updated): void {
+                $sortedLogs = $logs
+                    ->sortBy(fn (BioTimePunchLog $log): int => $log->punch_time->getTimestamp())
+                    ->values();
+
                 /** @var BioTimePunchLog $first */
-                $first = $logs->first();
+                $first = $sortedLogs->first();
                 /** @var BioTimePunchLog $last */
-                $last = $logs->last();
+                $last = $sortedLogs->last();
 
                 $checkIn = $first->punch_time;
-                $checkOut = $logs->count() > 1 ? $last->punch_time : null;
+                $checkOut = $sortedLogs->count() > 1 ? $last->punch_time : null;
                 $workMinutes = $checkOut ? max($checkIn->diffInMinutes($checkOut), 0) : null;
 
                 AttendanceRecord::query()->updateOrCreate(
