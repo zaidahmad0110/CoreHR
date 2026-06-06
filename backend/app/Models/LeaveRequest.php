@@ -15,6 +15,7 @@ class LeaveRequest extends Model
         'days',
         'status',
         'reason',
+        'sick_leave_photo_path',
     ];
 
     protected function casts(): array

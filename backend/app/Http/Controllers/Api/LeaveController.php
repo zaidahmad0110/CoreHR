@@ -25,7 +25,11 @@ class LeaveController extends Controller
 
     public function store(StoreLeaveRequest $request): JsonResponse
     {
-        $leaveRequest = $this->leaveService->createForUser($request->user(), $request->validated());
+        $leaveRequest = $this->leaveService->createForUser(
+            $request->user(),
+            $request->validated(),
+            $request->file('sick_leave_photo'),
+        );
 
         return response()->json([
             'data' => [
@@ -51,5 +55,10 @@ class LeaveController extends Controller
             ],
             'message' => 'Leave request status updated.',
         ]);
+    }
+
+    public function viewSickLeavePhoto(Request $request, LeaveRequest $leaveRequest)
+    {
+        return $this->leaveService->downloadSickLeavePhoto($request->user(), $leaveRequest);
     }
 }

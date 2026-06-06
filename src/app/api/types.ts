@@ -377,6 +377,7 @@ export interface LeaveManagementData {
     days: number;
     status: string;
     reason: string;
+    sick_leave_photo_available?: boolean;
     can_approve?: boolean;
   }>;
   balance: Array<{

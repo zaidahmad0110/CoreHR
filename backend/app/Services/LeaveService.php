@@ -12,8 +12,11 @@ use App\Models\LeaveType;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeaveService
 {
@@ -74,6 +77,7 @@ class LeaveService
                     'days' => $request->days,
                     'status' => $request->status,
                     'reason' => $request->reason,
+                    'sick_leave_photo_available' => (bool) $request->sick_leave_photo_path,
                     'can_approve' => $this->canApproveRequest(
                         $user,
                         $employee,
@@ -94,7 +98,7 @@ class LeaveService
         ];
     }
 
-    public function createForUser(User $user, array $payload): LeaveRequest
+    public function createForUser(User $user, array $payload, ?UploadedFile $sickLeavePhoto = null): LeaveRequest
     {
         $employee = $this->resolveOrProvisionEmployeeForUser($user);
         $leaveTypes = $this->resolveConfiguredLeaveTypes();
@@ -108,6 +112,10 @@ class LeaveService
 
         $from = Carbon::parse($payload['from_date']);
         $to = Carbon::parse($payload['to_date']);
+        $isSickLeave = str_contains(strtolower(trim((string) $payload['type'])), 'sick');
+        $sickLeavePhotoPath = $isSickLeave && $sickLeavePhoto
+            ? $sickLeavePhoto->store('sick-leave-photos', 'public')
+            : null;
 
         $leaveRequest = LeaveRequest::create([
             'employee_id' => $employee->id,
@@ -117,6 +125,7 @@ class LeaveService
             'days' => $from->diffInDays($to) + 1,
             'status' => 'Pending',
             'reason' => $payload['reason'] ?? null,
+            'sick_leave_photo_path' => $sickLeavePhotoPath,
         ]);
 
         $this->managerScopeService->notifyDepartmentManagers(
@@ -124,18 +133,43 @@ class LeaveService
             (int) $user->id,
             'Leave request pending approval',
             sprintf(
-                "Employee: %s\nRequest Type: %s\nPeriod: %s to %s\nDays: %d\n\nAction required: Please review this leave request.",
+                "Employee: %s\nRequest Type: %s\nPeriod: %s to %s\nDays: %d\nSick Leave Photo Attached: %s\n\nAction required: Please review this leave request.",
                 $employee->name,
                 $leaveRequest->type,
                 $leaveRequest->start_date?->format('M d, Y') ?? '-',
                 $leaveRequest->end_date?->format('M d, Y') ?? '-',
                 (int) $leaveRequest->days,
+                $sickLeavePhotoPath ? 'Yes' : 'No',
             ),
             'warning',
             'leave_request_notifications',
         );
 
         return $leaveRequest;
+    }
+
+    public function downloadSickLeavePhoto(User $user, LeaveRequest $leaveRequest): StreamedResponse
+    {
+        $employee = $this->resolveOrProvisionEmployeeForUser($user);
+        $isGlobalApprover = $this->canViewAllRequests($user, $employee);
+        $managedDepartmentIds = $this->managerScopeService->managedDepartmentIdsForUser($user);
+
+        if (! $this->canViewRequest($employee, $leaveRequest, $isGlobalApprover, $managedDepartmentIds)) {
+            abort(403, 'You are not authorized to view this sick leave photo.');
+        }
+
+        if (! $leaveRequest->sick_leave_photo_path) {
+            abort(404, 'Sick leave photo is not available for this request.');
+        }
+
+        if (! Storage::disk('public')->exists($leaveRequest->sick_leave_photo_path)) {
+            abort(404, 'Sick leave photo file not found.');
+        }
+
+        return Storage::disk('public')->download(
+            $leaveRequest->sick_leave_photo_path,
+            basename($leaveRequest->sick_leave_photo_path),
+        );
     }
 
     public function updateStatus(User $user, LeaveRequest $leaveRequest, string $status): LeaveRequest
@@ -272,6 +306,25 @@ class LeaveService
             strcasecmp((string) ($leaveRequest->employee?->email ?? ''), (string) $user->email) === 0
         ) {
             return false;
+        }
+
+        if ($isGlobalApprover) {
+            return true;
+        }
+
+        return in_array((int) ($leaveRequest->employee?->department_id ?? 0), $managedDepartmentIds, true);
+    }
+
+    private function canViewRequest(
+        Employee $actor,
+        LeaveRequest $leaveRequest,
+        bool $isGlobalApprover,
+        array $managedDepartmentIds
+    ): bool {
+        $leaveRequest->loadMissing('employee:id,manager_id,department_id,email');
+
+        if ((int) $leaveRequest->employee_id === (int) $actor->id) {
+            return true;
         }
 
         if ($isGlobalApprover) {

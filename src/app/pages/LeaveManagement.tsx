@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Upload } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -30,6 +30,7 @@ import {
 import { Textarea } from "../components/ui/textarea";
 import { leaveService } from "../api/services";
 import { useApiQuery } from "../hooks/useApiQuery";
+import { openBlobInNewTab } from "../utils/openInNewTab";
 
 export function LeaveManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,20 +38,29 @@ export function LeaveManagement() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [reason, setReason] = useState("");
+  const [sickLeavePhoto, setSickLeavePhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [updatingLeaveId, setUpdatingLeaveId] = useState<number | null>(null);
+  const [viewingPhotoId, setViewingPhotoId] = useState<number | null>(null);
 
   const { data, loading, error, refetch } = useApiQuery(() => leaveService.getLeaveData(), []);
   const leaveRequests = data?.requests ?? [];
   const leaveBalance = data?.balance ?? [];
   const leaveTypeOptions = data?.leave_types?.map((type) => type.name) ?? [];
+  const isSickLeaveSelected = leaveType.toLowerCase().includes("sick");
 
   useEffect(() => {
     if (leaveType && !leaveTypeOptions.includes(leaveType)) {
       setLeaveType("");
     }
   }, [leaveType, leaveTypeOptions]);
+
+  useEffect(() => {
+    if (!isSickLeaveSelected) {
+      setSickLeavePhoto(null);
+    }
+  }, [isSickLeaveSelected]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -70,6 +80,7 @@ export function LeaveManagement() {
     setFromDate("");
     setToDate("");
     setReason("");
+    setSickLeavePhoto(null);
     setFormError(null);
   };
 
@@ -84,6 +95,11 @@ export function LeaveManagement() {
       return;
     }
 
+    if (isSickLeaveSelected && !sickLeavePhoto) {
+      setFormError("Please upload a sick leave photo.");
+      return;
+    }
+
     setFormError(null);
     setSubmitting(true);
 
@@ -93,6 +109,7 @@ export function LeaveManagement() {
         from_date: fromDate,
         to_date: toDate,
         reason,
+        sick_leave_photo: isSickLeaveSelected ? sickLeavePhoto ?? undefined : undefined,
       });
       resetForm();
       setDialogOpen(false);
@@ -105,6 +122,20 @@ export function LeaveManagement() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleViewSickLeavePhoto = async (id: number) => {
+    setViewingPhotoId(id);
+
+    try {
+      const file = await leaveService.viewSickLeavePhoto(id);
+      openBlobInNewTab(file.blob);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to open sick leave photo.";
+      window.alert(message);
+    } finally {
+      setViewingPhotoId(null);
     }
   };
 
@@ -187,6 +218,22 @@ export function LeaveManagement() {
                   onChange={(e) => setReason(e.target.value)}
                 />
               </div>
+              {isSickLeaveSelected && (
+                <div>
+                  <Label htmlFor="sick-leave-photo">Sick Leave Photo</Label>
+                  <Input
+                    id="sick-leave-photo"
+                    type="file"
+                    className="mt-2"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                    onChange={(event) => setSickLeavePhoto(event.target.files?.[0] ?? null)}
+                  />
+                  <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                    <Upload className="w-3 h-3" />
+                    JPG, PNG, or WEBP up to 5 MB is required for sick leave.
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
@@ -317,6 +364,16 @@ export function LeaveManagement() {
                     <TableCell>
                       {request.can_approve && request.status === "Pending" && (
                         <div className="flex gap-2">
+                          {request.sick_leave_photo_available && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void handleViewSickLeavePhoto(request.id)}
+                              disabled={viewingPhotoId === request.id}
+                            >
+                              {viewingPhotoId === request.id ? "Opening..." : "View Photo"}
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             className="bg-[#10B981] hover:bg-[#059669] text-white"
@@ -335,6 +392,16 @@ export function LeaveManagement() {
                             Reject
                           </Button>
                         </div>
+                      )}
+                      {(!request.can_approve || request.status !== "Pending") && request.sick_leave_photo_available && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleViewSickLeavePhoto(request.id)}
+                          disabled={viewingPhotoId === request.id}
+                        >
+                          {viewingPhotoId === request.id ? "Opening..." : "View Photo"}
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>

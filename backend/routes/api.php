@@ -99,6 +99,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/leaves', [LeaveController::class, 'index']);
         Route::post('/leaves', [LeaveController::class, 'store']);
         Route::patch('/leaves/{leaveRequest}/status', [LeaveController::class, 'updateStatus']);
+        Route::get('/leaves/{leaveRequest}/sick-leave-photo', [LeaveController::class, 'viewSickLeavePhoto']);
     });
 
     Route::middleware('permission:payroll')->group(function (): void {

@@ -368,10 +368,17 @@ export const leaveService = {
   getLeaveData() {
     return apiRequest<LeaveManagementData>("/api/leaves");
   },
-  createLeave(payload: { type: string; from_date: string; to_date: string; reason: string }) {
+  createLeave(payload: { type: string; from_date: string; to_date: string; reason: string; sick_leave_photo?: File }) {
+    const formData = new FormData();
+    formData.append("type", payload.type);
+    formData.append("from_date", payload.from_date);
+    formData.append("to_date", payload.to_date);
+    formData.append("reason", payload.reason);
+    if (payload.sick_leave_photo) formData.append("sick_leave_photo", payload.sick_leave_photo);
+
     return apiRequest<{ id: number; status: string }>("/api/leaves", {
       method: "POST",
-      body: payload,
+      body: formData,
     });
   },
   updateLeaveStatus(id: number, status: "Approved" | "Rejected" | "Pending") {
@@ -379,6 +386,9 @@ export const leaveService = {
       method: "PATCH",
       body: { status },
     });
+  },
+  viewSickLeavePhoto(id: number) {
+    return apiFileRequest(`/api/leaves/${id}/sick-leave-photo`);
   },
 };
 
