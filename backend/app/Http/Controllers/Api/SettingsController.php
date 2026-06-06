@@ -104,24 +104,27 @@ class SettingsController extends Controller
     {
         $this->ensureDefaultSettings();
 
+        $canManageSettings = $this->userCanManageSettings($request);
         $companySetting = $this->resolveCompanySetting();
-        $leaveTypes = LeaveType::query()->orderBy('name')->get();
-        $allowanceTypes = PayrollAllowanceType::query()->orderBy('name')->get();
-        $deductionTypes = PayrollDeductionType::query()->orderBy('name')->get();
-        $holidays = Holiday::query()->orderBy('date')->orderBy('id')->get();
+        $leaveTypes = $canManageSettings ? LeaveType::query()->orderBy('name')->get() : collect();
+        $allowanceTypes = $canManageSettings ? PayrollAllowanceType::query()->orderBy('name')->get() : collect();
+        $deductionTypes = $canManageSettings ? PayrollDeductionType::query()->orderBy('name')->get() : collect();
+        $holidays = $canManageSettings ? Holiday::query()->orderBy('date')->orderBy('id')->get() : collect();
 
         return response()->json([
             'data' => [
                 'company' => [
                     'name' => $companySetting->company_name,
-                    'email' => $companySetting->company_email,
-                    'phone' => $companySetting->company_phone,
-                    'website' => $companySetting->company_website,
-                    'address' => $companySetting->company_address,
+                    'email' => $canManageSettings ? $companySetting->company_email : null,
+                    'phone' => $canManageSettings ? $companySetting->company_phone : null,
+                    'website' => $canManageSettings ? $companySetting->company_website : null,
+                    'address' => $canManageSettings ? $companySetting->company_address : null,
                     'logo_url' => $this->companyLogoUrl($companySetting),
                     'default_language' => $companySetting->default_language ?: 'en',
                 ],
-                'communications' => $this->serializeCommunicationSettings($companySetting),
+                'communications' => $canManageSettings
+                    ? $this->serializeCommunicationSettings($companySetting)
+                    : $this->emptyCommunicationSettings(),
                 'leave_types' => $leaveTypes
                     ->map(fn (LeaveType $type): array => $this->serializeLeaveType($type))
                     ->values(),
@@ -137,15 +140,19 @@ class SettingsController extends Controller
                     ->map(fn (Holiday $holiday): array => $this->serializeHoliday($holiday))
                     ->values(),
                 'notifications' => [
-                    'leave_request_notifications' => (bool) $companySetting->notify_leave_requests,
-                    'attendance_alerts' => (bool) $companySetting->notify_attendance_alerts,
-                    'expense_approvals' => (bool) $companySetting->notify_expense_approvals,
-                    'payroll_reminders' => (bool) $companySetting->notify_payroll_reminders,
+                    'leave_request_notifications' => $canManageSettings && (bool) $companySetting->notify_leave_requests,
+                    'attendance_alerts' => $canManageSettings && (bool) $companySetting->notify_attendance_alerts,
+                    'expense_approvals' => $canManageSettings && (bool) $companySetting->notify_expense_approvals,
+                    'payroll_reminders' => $canManageSettings && (bool) $companySetting->notify_payroll_reminders,
                 ],
-                'biotime' => $this->serializeBioTimeSettings($companySetting),
-                'work_hours' => $this->serializeWorkHourSettings($companySetting),
+                'biotime' => $canManageSettings
+                    ? $this->serializeBioTimeSettings($companySetting)
+                    : $this->emptyBioTimeSettings(),
+                'work_hours' => $canManageSettings
+                    ? $this->serializeWorkHourSettings($companySetting)
+                    : $this->emptyWorkHourSettings(),
                 'permissions' => [
-                    'can_manage' => $this->userCanManageSettings($request),
+                    'can_manage' => $canManageSettings,
                 ],
             ],
         ]);
@@ -715,6 +722,23 @@ class SettingsController extends Controller
         ];
     }
 
+    private function emptyCommunicationSettings(): array
+    {
+        return [
+            'mail_mailer' => null,
+            'mail_host' => null,
+            'mail_port' => null,
+            'mail_username' => null,
+            'mail_password' => null,
+            'mail_encryption' => null,
+            'mail_from_address' => null,
+            'mail_from_name' => null,
+            'sms_gateway_endpoint' => null,
+            'sms_gateway_token' => null,
+            'sms_gateway_timeout' => null,
+        ];
+    }
+
     private function serializeBioTimeSettings(CompanySetting $companySetting): array
     {
         return [
@@ -727,6 +751,18 @@ class SettingsController extends Controller
         ];
     }
 
+    private function emptyBioTimeSettings(): array
+    {
+        return [
+            'enabled' => false,
+            'base_url' => null,
+            'username' => null,
+            'password' => null,
+            'timeout' => null,
+            'last_sync_at' => null,
+        ];
+    }
+
     private function serializeWorkHourSettings(CompanySetting $companySetting): array
     {
         $fullDayMinutes = (int) ($companySetting->work_full_day_minutes ?? 540);
@@ -736,6 +772,16 @@ class SettingsController extends Controller
             'end_time' => substr((string) ($companySetting->work_end_time ?? '18:00:00'), 0, 5),
             'full_day_minutes' => $fullDayMinutes,
             'full_day_hours' => round($fullDayMinutes / 60, 2),
+        ];
+    }
+
+    private function emptyWorkHourSettings(): array
+    {
+        return [
+            'start_time' => '',
+            'end_time' => '',
+            'full_day_minutes' => 0,
+            'full_day_hours' => 0,
         ];
     }
 

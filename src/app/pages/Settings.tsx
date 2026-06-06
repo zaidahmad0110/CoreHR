@@ -474,8 +474,8 @@ export function Settings() {
     });
   };
 
-  return (
-    <div className="space-y-6">
+  const settingsHeader = (
+    <>
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
         <p className="text-gray-600 mt-1">Manage system configurations and preferences</p>
@@ -489,6 +489,100 @@ export function Settings() {
           </CardContent>
         </Card>
       )}
+    </>
+  );
+
+  const securityCard = (
+    <Card className="border-0 shadow-sm">
+      <CardHeader>
+        <CardTitle>Account Security</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="current-password">Current Password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              className="mt-2"
+              value={passwordForm.currentPassword}
+              onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="new-account-password">New Password</Label>
+            <Input
+              id="new-account-password"
+              type="password"
+              className="mt-2"
+              value={passwordForm.newPassword}
+              onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="confirm-account-password">Confirm New Password</Label>
+            <Input
+              id="confirm-account-password"
+              type="password"
+              className="mt-2"
+              value={passwordForm.confirmPassword}
+              onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            disabled={
+              passwordSaving
+              || !passwordForm.currentPassword
+              || passwordForm.newPassword.length < 8
+              || !passwordForm.confirmPassword
+            }
+            onClick={() => void handleSavePassword()}
+          >
+            {passwordSaving ? "Changing..." : "Change Password"}
+          </Button>
+        </div>
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <div className="font-medium text-gray-900">Two-Factor Authentication (2FA)</div>
+            <div className="text-sm text-gray-600 mt-1">
+              Require a 6-digit email verification code during login.
+            </div>
+          </div>
+          <Switch
+            checked={twoFactorEnabled}
+            disabled={twoFactorLoading || twoFactorSaving}
+            onCheckedChange={(checked) => setTwoFactorEnabled(checked)}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
+            disabled={twoFactorLoading || twoFactorSaving}
+            onClick={() => void handleSaveTwoFactor()}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {twoFactorSaving ? "Saving..." : "Save Security"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  if (data && !canManageSettings) {
+    return (
+      <div className="space-y-6">
+        {settingsHeader}
+        {securityCard}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {settingsHeader}
 
       <Tabs defaultValue="company" className="space-y-6">
         <TabsList>
@@ -622,82 +716,7 @@ export function Settings() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle>Account Security</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    className="mt-2"
-                    value={passwordForm.currentPassword}
-                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="new-account-password">New Password</Label>
-                  <Input
-                    id="new-account-password"
-                    type="password"
-                    className="mt-2"
-                    value={passwordForm.newPassword}
-                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="confirm-account-password">Confirm New Password</Label>
-                  <Input
-                    id="confirm-account-password"
-                    type="password"
-                    className="mt-2"
-                    value={passwordForm.confirmPassword}
-                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  disabled={
-                    passwordSaving
-                    || !passwordForm.currentPassword
-                    || passwordForm.newPassword.length < 8
-                    || !passwordForm.confirmPassword
-                  }
-                  onClick={() => void handleSavePassword()}
-                >
-                  {passwordSaving ? "Changing..." : "Change Password"}
-                </Button>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="font-medium text-gray-900">Two-Factor Authentication (2FA)</div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    Require a 6-digit email verification code during login.
-                  </div>
-                </div>
-                <Switch
-                  checked={twoFactorEnabled}
-                  disabled={twoFactorLoading || twoFactorSaving}
-                  onCheckedChange={(checked) => setTwoFactorEnabled(checked)}
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
-                  disabled={twoFactorLoading || twoFactorSaving}
-                  onClick={() => void handleSaveTwoFactor()}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {twoFactorSaving ? "Saving..." : "Save Security"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {securityCard}
         </TabsContent>
 
         <TabsContent value="communications" className="space-y-6">
