@@ -80,7 +80,13 @@ export function TrainingMaterials() {
       return false;
     }
 
-    if ((user.role ?? "").toLowerCase() === "admin") {
+    const role = (user.role ?? "").toLowerCase();
+    const jobTitle = (user.job_title ?? "").toLowerCase();
+    if (["admin", "ceo", "gm", "general manager"].includes(role)) {
+      return true;
+    }
+
+    if (["ceo", "chief executive officer", "gm", "general manager"].includes(jobTitle)) {
       return true;
     }
 

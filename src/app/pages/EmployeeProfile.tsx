@@ -309,11 +309,11 @@ export function EmployeeProfile() {
     const jobTitle = (user.job_title ?? "").trim().toLowerCase();
     const department = (user.department ?? "").trim().toLowerCase();
 
-    if (["admin", "hr", "ceo"].includes(role)) {
+    if (["admin", "hr", "ceo", "gm", "general manager"].includes(role)) {
       return true;
     }
 
-    if (["ceo", "chief executive officer"].includes(jobTitle)) {
+    if (["ceo", "chief executive officer", "gm", "general manager"].includes(jobTitle)) {
       return true;
     }
 
@@ -987,6 +987,15 @@ export function EmployeeProfile() {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                       <span className="text-gray-700">Check In: {data.today_attendance.check_in}</span>
                       <span className="text-gray-700">Check Out: {data.today_attendance.check_out}</span>
+                      {data.today_attendance.break_in && data.today_attendance.break_in !== "-" && (
+                        <span className="text-gray-700">Break In: {data.today_attendance.break_in}</span>
+                      )}
+                      {data.today_attendance.break_out && data.today_attendance.break_out !== "-" && (
+                        <span className="text-gray-700">Break Out: {data.today_attendance.break_out}</span>
+                      )}
+                      {data.today_attendance.break_duration && data.today_attendance.break_duration !== "-" && (
+                        <span className="text-gray-700">Break Duration: {data.today_attendance.break_duration}</span>
+                      )}
                       <span className="text-gray-700">Work Hours: {data.today_attendance.work_hours}</span>
                       <Badge className={getAttendanceStatusClassName(data.today_attendance.status)} variant="secondary">
                         {data.today_attendance.status}
@@ -1003,13 +1012,16 @@ export function EmployeeProfile() {
                       <TableHead>Date</TableHead>
                       <TableHead>Check In</TableHead>
                       <TableHead>Check Out</TableHead>
+                      <TableHead>Break In</TableHead>
+                      <TableHead>Break Out</TableHead>
+                      <TableHead>Break Duration</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.attendance_history.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           No attendance history found.
                         </TableCell>
                       </TableRow>
@@ -1019,6 +1031,9 @@ export function EmployeeProfile() {
                         <TableCell className="font-medium">{record.date}</TableCell>
                         <TableCell>{record.check_in}</TableCell>
                         <TableCell>{record.check_out}</TableCell>
+                        <TableCell>{record.break_in ?? "-"}</TableCell>
+                        <TableCell>{record.break_out ?? "-"}</TableCell>
+                        <TableCell>{record.break_duration ?? "-"}</TableCell>
                         <TableCell>
                           <Badge className={getAttendanceStatusClassName(record.status)} variant="secondary">
                             {record.status}

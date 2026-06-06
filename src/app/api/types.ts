@@ -161,6 +161,9 @@ export interface EmployeeProfileData {
     date: string;
     check_in: string;
     check_out: string;
+    break_in?: string;
+    break_out?: string;
+    break_duration?: string;
     status: string;
     work_hours?: string;
   }>;
@@ -169,6 +172,9 @@ export interface EmployeeProfileData {
     date: string;
     check_in: string;
     check_out: string;
+    break_in?: string;
+    break_out?: string;
+    break_duration?: string;
     status: string;
     work_hours: string;
   } | null;
@@ -292,6 +298,9 @@ export interface AttendanceData {
     department: string;
     check_in: string;
     check_out: string;
+    break_in: string;
+    break_out: string;
+    break_duration: string;
     work_hours: string;
     status: string;
   }>;

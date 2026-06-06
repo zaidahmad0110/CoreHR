@@ -99,6 +99,24 @@ export const authService = {
       body: { enabled },
     });
   },
+  changePassword(payload: { current_password: string; password: string; password_confirmation: string }) {
+    return apiRequest<void>("/api/auth/password", {
+      method: "PATCH",
+      body: payload,
+    });
+  },
+  requestPasswordReset(email: string) {
+    return apiRequest<void>("/api/forgot-password", {
+      method: "POST",
+      body: { email },
+    });
+  },
+  resetPassword(payload: { email: string; code: string; password: string; password_confirmation: string }) {
+    return apiRequest<void>("/api/reset-password", {
+      method: "POST",
+      body: payload,
+    });
+  },
 };
 
 export const dashboardService = {

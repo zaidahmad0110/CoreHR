@@ -215,7 +215,7 @@ class PayrollService
         $daysInMonth = max((int) $monthStart->daysInMonth, 1);
 
         $attendanceDaysByEmployee = AttendanceRecord::query()
-            ->selectRaw('employee_id, COUNT(*) as attendance_days')
+            ->selectRaw('employee_id, COUNT(DISTINCT date) as attendance_days')
             ->whereBetween('date', [$monthStart->toDateString(), $monthEnd->toDateString()])
             ->where(function ($query): void {
                 $query->whereNull('status')
@@ -349,7 +349,19 @@ class PayrollService
 
     private function isAdmin(User $actor): bool
     {
-        return strcasecmp((string) $actor->role, 'Admin') === 0;
+        if (in_array(strtolower(trim((string) $actor->role)), ['admin', 'ceo', 'gm', 'general manager'], true)) {
+            return true;
+        }
+
+        $employee = Employee::query()
+            ->where('email', $actor->email)
+            ->first();
+
+        return in_array(
+            strtolower(trim((string) $employee?->job_title)),
+            ['ceo', 'chief executive officer', 'gm', 'general manager'],
+            true,
+        );
     }
 
     private function resolvePayrollGenerationCutoffMonthStart(): Carbon

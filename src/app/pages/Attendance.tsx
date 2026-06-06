@@ -44,13 +44,27 @@ export function Attendance() {
       return;
     }
 
-    const header = ["Date", "Employee", "Department", "Check In", "Check Out", "Work Hours", "Status"];
+    const header = [
+      "Date",
+      "Employee",
+      "Department",
+      "Check In",
+      "Check Out",
+      "Break In",
+      "Break Out",
+      "Break Duration",
+      "Work Hours",
+      "Status",
+    ];
     const rows = attendanceRecords.map((record) => [
       format(date, "yyyy-MM-dd"),
       record.employee,
       record.department,
       record.check_in,
       record.check_out,
+      record.break_in ?? "-",
+      record.break_out ?? "-",
+      record.break_duration ?? "-",
       record.work_hours,
       record.status,
     ]);
@@ -198,6 +212,9 @@ export function Attendance() {
                 <TableHead>Department</TableHead>
                 <TableHead>Check In</TableHead>
                 <TableHead>Check Out</TableHead>
+                <TableHead>Break In</TableHead>
+                <TableHead>Break Out</TableHead>
+                <TableHead>Break Duration</TableHead>
                 <TableHead>Work Hours</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -205,14 +222,14 @@ export function Attendance() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                     Loading attendance...
                   </TableCell>
                 </TableRow>
               )}
               {!loading && attendanceRecords.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                     No attendance records for this date.
                   </TableCell>
                 </TableRow>
@@ -233,6 +250,9 @@ export function Attendance() {
                     <TableCell className="text-gray-700">{record.department}</TableCell>
                     <TableCell className="text-gray-700">{record.check_in}</TableCell>
                     <TableCell className="text-gray-700">{record.check_out}</TableCell>
+                    <TableCell className="text-gray-700">{record.break_in}</TableCell>
+                    <TableCell className="text-gray-700">{record.break_out}</TableCell>
+                    <TableCell className="text-gray-700">{record.break_duration}</TableCell>
                     <TableCell className="font-medium text-gray-900">{record.work_hours}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(record.status)} variant="secondary">

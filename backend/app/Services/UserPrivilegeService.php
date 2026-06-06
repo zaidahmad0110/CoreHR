@@ -158,7 +158,13 @@ class UserPrivilegeService
             true,
         );
 
-        if ($role === 'admin') {
+        $jobTitle = strtolower(trim((string) $employee?->job_title));
+
+        if (
+            $role === 'admin'
+            || in_array($role, ['ceo', 'gm', 'general manager'], true)
+            || in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)
+        ) {
             return $this->allEnabled();
         }
 

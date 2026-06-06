@@ -46,7 +46,12 @@ export function Payroll() {
     }
 
     const role = (user.role ?? "").toLowerCase();
-    if (role === "admin" || role === "hr") {
+    const jobTitle = (user.job_title ?? "").toLowerCase();
+    if (["admin", "hr", "ceo", "gm", "general manager"].includes(role)) {
+      return true;
+    }
+
+    if (["ceo", "chief executive officer", "gm", "general manager"].includes(jobTitle)) {
       return true;
     }
 

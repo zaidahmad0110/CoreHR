@@ -477,7 +477,7 @@ class TrainingService
 
     private function canManageTraining(User $actor): bool
     {
-        if (strcasecmp((string) $actor->role, 'Admin') === 0) {
+        if (in_array(strtolower(trim((string) $actor->role)), ['admin', 'ceo', 'gm', 'general manager'], true)) {
             return true;
         }
 
@@ -485,6 +485,11 @@ class TrainingService
             ->with('department')
             ->where('email', $actor->email)
             ->first();
+
+        $jobTitle = strtolower(trim((string) $employee?->job_title));
+        if (in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)) {
+            return true;
+        }
 
         return strcasecmp((string) $employee?->department?->name, 'Human Resources') === 0;
     }

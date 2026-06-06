@@ -221,25 +221,89 @@ class BioTimeSyncService
 
                 $checkIn = $first->punch_time;
                 $checkOut = $sortedLogs->count() > 1 ? $last->punch_time : null;
-                $workMinutes = $checkOut ? max($checkIn->diffInMinutes($checkOut), 0) : null;
+                $breakPairs = $this->resolveBreakPairs($sortedLogs);
+                $breakMinutes = collect($breakPairs)->sum('minutes');
+                $workMinutes = $checkOut ? max($checkIn->diffInMinutes($checkOut) - $breakMinutes, 0) : null;
+                $status = $this->resolveAttendanceStatus($checkIn, $workMinutes);
 
-                AttendanceRecord::query()->updateOrCreate(
-                    [
-                        'employee_id' => $first->employee_id,
-                        'date' => $checkIn->toDateString(),
-                    ],
-                    [
-                        'check_in' => $checkIn->format('H:i:s'),
-                        'check_out' => $checkOut?->format('H:i:s'),
-                        'work_minutes' => $workMinutes,
-                        'status' => $this->resolveAttendanceStatus($checkIn, $workMinutes),
-                    ],
-                );
+                if ($breakPairs === []) {
+                    AttendanceRecord::query()->updateOrCreate(
+                        [
+                            'employee_id' => $first->employee_id,
+                            'date' => $checkIn->toDateString(),
+                            'check_in' => $checkIn->format('H:i:s'),
+                            'check_out' => $checkOut?->format('H:i:s'),
+                            'break_in' => null,
+                            'break_out' => null,
+                        ],
+                        [
+                            'break_minutes' => null,
+                            'work_minutes' => $workMinutes,
+                            'status' => $status,
+                        ],
+                    );
 
-                $updated++;
+                    $updated++;
+
+                    return;
+                }
+
+                foreach ($breakPairs as $breakPair) {
+                    AttendanceRecord::query()->updateOrCreate(
+                        [
+                            'employee_id' => $first->employee_id,
+                            'date' => $checkIn->toDateString(),
+                            'check_in' => $checkIn->format('H:i:s'),
+                            'check_out' => $checkOut?->format('H:i:s'),
+                            'break_in' => $breakPair['break_in']?->format('H:i:s'),
+                            'break_out' => $breakPair['break_out']?->format('H:i:s'),
+                        ],
+                        [
+                            'break_minutes' => $breakPair['minutes'],
+                            'work_minutes' => $workMinutes,
+                            'status' => $status,
+                        ],
+                    );
+
+                    $updated++;
+                }
             });
 
         return $updated;
+    }
+
+    /**
+     * @return array<int, array{break_in: Carbon|null, break_out: Carbon|null, minutes: int|null}>
+     */
+    private function resolveBreakPairs(Collection $sortedLogs): array
+    {
+        if ($sortedLogs->count() <= 2) {
+            return [];
+        }
+
+        $middlePunches = $sortedLogs
+            ->slice(1, max($sortedLogs->count() - 2, 0))
+            ->values();
+        $pairs = [];
+
+        for ($index = 0; $index < $middlePunches->count(); $index += 2) {
+            /** @var BioTimePunchLog|null $breakInLog */
+            $breakInLog = $middlePunches->get($index);
+            /** @var BioTimePunchLog|null $breakOutLog */
+            $breakOutLog = $middlePunches->get($index + 1);
+            $breakIn = $breakInLog?->punch_time;
+            $breakOut = $breakOutLog?->punch_time;
+
+            $pairs[] = [
+                'break_in' => $breakIn,
+                'break_out' => $breakOut,
+                'minutes' => ($breakIn && $breakOut && $breakOut->greaterThan($breakIn))
+                    ? max($breakIn->diffInMinutes($breakOut), 0)
+                    : null,
+            ];
+        }
+
+        return $pairs;
     }
 
     private function resolveAttendanceStatus(Carbon $checkIn, ?int $workMinutes): string

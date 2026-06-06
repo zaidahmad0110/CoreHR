@@ -133,7 +133,7 @@ class AssetController extends Controller
             return false;
         }
 
-        if (strcasecmp((string) $user->role, 'Admin') === 0) {
+        if (in_array(strtolower(trim((string) $user->role)), ['admin', 'ceo', 'gm', 'general manager'], true)) {
             return true;
         }
 
@@ -141,6 +141,11 @@ class AssetController extends Controller
             ->with('department')
             ->where('email', $user->email)
             ->first();
+
+        $jobTitle = strtolower(trim((string) $employee?->job_title));
+        if (in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)) {
+            return true;
+        }
 
         return strcasecmp((string) $employee?->department?->name, 'Human Resources') === 0;
     }

@@ -210,8 +210,14 @@ class DashboardService
 
             return [
                 'month' => $month->format('M'),
-                'present' => $records->whereIn('status', ['Present', 'Early', 'Late', 'Overtime'])->count(),
-                'absent' => $records->where('status', 'Absent')->count(),
+                'present' => $records
+                    ->whereIn('status', ['Present', 'Early', 'Late', 'Overtime'])
+                    ->unique(fn (AttendanceRecord $record): string => $record->employee_id.'|'.$record->date?->toDateString())
+                    ->count(),
+                'absent' => $records
+                    ->where('status', 'Absent')
+                    ->unique(fn (AttendanceRecord $record): string => $record->employee_id.'|'.$record->date?->toDateString())
+                    ->count(),
             ];
         });
     }
@@ -321,7 +327,8 @@ class DashboardService
         $attendingCount = $this->scopedAttendanceQuery($context)
             ->whereDate('date', $date->toDateString())
             ->whereIn('status', ['Present', 'Early', 'Late', 'Overtime'])
-            ->count();
+            ->distinct()
+            ->count('employee_id');
 
         return round(($attendingCount / $totalEmployees) * 100, 1);
     }
@@ -451,7 +458,8 @@ class DashboardService
         $presentToday = $this->scopedAttendanceQuery($context)
             ->whereDate('date', $today->toDateString())
             ->whereIn('status', ['Present', 'Early', 'Late', 'Overtime'])
-            ->count();
+            ->distinct()
+            ->count('employee_id');
 
         $isHolidayToday = Holiday::query()
             ->whereDate('date', $today->toDateString())

@@ -76,7 +76,7 @@ class PayrollController extends Controller
             return false;
         }
 
-        if (strcasecmp((string) $user->role, 'Admin') === 0) {
+        if (in_array(strtolower(trim((string) $user->role)), ['admin', 'ceo', 'gm', 'general manager'], true)) {
             return true;
         }
 
@@ -90,6 +90,11 @@ class PayrollController extends Controller
             ->first();
 
         $departmentName = strtolower(trim((string) $employee?->department?->name));
+        $jobTitle = strtolower(trim((string) $employee?->job_title));
+        if (in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)) {
+            return true;
+        }
+
         $isHr = in_array($departmentName, ['human resources', 'hr'], true);
         if ($isHr) {
             return true;

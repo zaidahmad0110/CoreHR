@@ -12,6 +12,9 @@ class AttendanceRecord extends Model
         'date',
         'check_in',
         'check_out',
+        'break_in',
+        'break_out',
+        'break_minutes',
         'work_minutes',
         'status',
     ];
@@ -22,6 +25,8 @@ class AttendanceRecord extends Model
             'date' => 'date',
             'check_in' => 'datetime:H:i:s',
             'check_out' => 'datetime:H:i:s',
+            'break_in' => 'datetime:H:i:s',
+            'break_out' => 'datetime:H:i:s',
         ];
     }
 

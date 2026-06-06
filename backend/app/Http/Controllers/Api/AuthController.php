@@ -14,6 +14,8 @@ use App\Services\UserPrivilegeService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -114,6 +116,106 @@ class AuthController extends Controller
         ]);
     }
 
+    public function changePassword(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+        if (! $user || ! $this->validateAndUpgradePassword($user, (string) $payload['current_password'])) {
+            return response()->json([
+                'message' => 'Current password is incorrect.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user->forceFill([
+            'password' => (string) $payload['password'],
+        ])->save();
+
+        return response()->json([
+            'message' => 'Password changed successfully.',
+        ]);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email = strtolower(trim((string) $payload['email']));
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user) {
+            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $email],
+                [
+                    'token' => Hash::make($code),
+                    'created_at' => now(),
+                ],
+            );
+
+            $this->messagingService->send(
+                'email',
+                $email,
+                null,
+                'Your CoreHR password reset code',
+                sprintf('Your password reset code is %s. It expires in 15 minutes.', $code),
+                ['scope' => 'password_reset'],
+            );
+        }
+
+        return response()->json([
+            'message' => 'If this email exists, a password reset code has been sent.',
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string', 'size:6'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+        ]);
+
+        $email = strtolower(trim((string) $payload['email']));
+        $reset = DB::table('password_reset_tokens')->where('email', $email)->first();
+        $resetCreatedAt = $reset?->created_at ? Carbon::parse((string) $reset->created_at) : null;
+
+        if (
+            ! $reset
+            || ! $resetCreatedAt
+            || ! Hash::check((string) $payload['code'], (string) $reset->token)
+            || $resetCreatedAt->lt(now()->subMinutes(15))
+        ) {
+            return response()->json([
+                'message' => 'Invalid or expired password reset code.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user = User::query()->where('email', $email)->first();
+        if (! $user) {
+            return response()->json([
+                'message' => 'Invalid or expired password reset code.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user->forceFill([
+            'password' => (string) $payload['password'],
+        ])->save();
+        $user->tokens()->delete();
+
+        DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+        return response()->json([
+            'message' => 'Password reset successfully. You can now sign in.',
+        ]);
+    }
+
     public function me(Request $request): JsonResponse
     {
         return response()->json([
@@ -195,12 +297,12 @@ class AuthController extends Controller
     private function isPowerEmployee(User $user, ?Employee $employee): bool
     {
         $role = strtolower(trim((string) $user->role));
-        if (in_array($role, ['admin', 'hr', 'ceo'], true)) {
+        if (in_array($role, ['admin', 'hr', 'ceo', 'gm', 'general manager'], true)) {
             return true;
         }
 
         $jobTitle = strtolower(trim((string) $employee?->job_title));
-        if (in_array($jobTitle, ['ceo', 'chief executive officer'], true)) {
+        if (in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)) {
             return true;
         }
 

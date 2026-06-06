@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Checkbox } from "../components/ui/checkbox";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "../components/ui/input-otp";
+import { authService } from "../api/services";
 import { useAuth } from "../auth/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 
@@ -17,6 +18,12 @@ export function Login() {
   const [otpCode, setOtpCode] = useState("");
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [otpHint, setOtpHint] = useState<string | null>(null);
+  const [passwordResetMode, setPasswordResetMode] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,6 +58,49 @@ export function Login() {
     }
   };
 
+  const handleRequestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await authService.requestPasswordReset(email);
+      setResetCodeSent(true);
+      setSuccessMessage("If this email exists, a reset code has been sent.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to request password reset.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await authService.resetPassword({
+        email,
+        code: resetCode,
+        password: newPassword,
+        password_confirmation: confirmNewPassword,
+      });
+      setPasswordResetMode(false);
+      setResetCode("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setResetCodeSent(false);
+      setSuccessMessage("Password reset successfully. You can now sign in.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reset password.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#2563EB] to-[#0EA5E9] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -65,10 +115,18 @@ export function Login() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form
+            onSubmit={passwordResetMode ? (resetCodeSent ? handleResetPassword : handleRequestPasswordReset) : handleLogin}
+            className="space-y-6"
+          >
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
                 {error}
+              </div>
+            )}
+            {successMessage && (
+              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+                {successMessage}
               </div>
             )}
 
@@ -87,22 +145,71 @@ export function Login() {
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                {t("login.password")}
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="********"
-                required
-                className="bg-gray-50"
-              />
-            </div>
+            {!passwordResetMode && (
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  {t("login.password")}
+                </label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="********"
+                  required
+                  className="bg-gray-50"
+                />
+              </div>
+            )}
 
-            {twoFactorRequired && (
+            {passwordResetMode && resetCodeSent && (
+              <>
+                <div>
+                  <label htmlFor="reset-code" className="block text-sm font-medium text-gray-700 mb-2">
+                    Reset Code
+                  </label>
+                  <Input
+                    id="reset-code"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value)}
+                    placeholder="000000"
+                    maxLength={6}
+                    required
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-2">
+                    New Password
+                  </label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="********"
+                    required
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="confirm-new-password" className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <Input
+                    id="confirm-new-password"
+                    type="password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="********"
+                    required
+                    className="bg-gray-50"
+                  />
+                </div>
+              </>
+            )}
+
+            {twoFactorRequired && !passwordResetMode && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
                 <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
@@ -121,29 +228,58 @@ export function Login() {
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                />
-                <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">
-                  {t("login.remember")}
-                </label>
+            {!passwordResetMode && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  />
+                  <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer">
+                    {t("login.remember")}
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-[#2563EB] hover:text-[#1d4ed8]"
+                  onClick={() => {
+                    setPasswordResetMode(true);
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                >
+                  {t("login.forgot")}
+                </button>
               </div>
-              <a href="#" className="text-sm font-medium text-[#2563EB] hover:text-[#1d4ed8]">
-                {t("login.forgot")}
-              </a>
-            </div>
+            )}
 
             <Button
               type="submit"
               className="w-full bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
-              disabled={submitting || (twoFactorRequired && otpCode.length < 6)}
+              disabled={submitting || (!passwordResetMode && twoFactorRequired && otpCode.length < 6)}
             >
-              {submitting ? t("login.submitting") : twoFactorRequired ? "Verify & Sign In" : t("login.submit")}
+              {submitting
+                ? t("login.submitting")
+                : passwordResetMode
+                  ? resetCodeSent ? "Reset Password" : "Send Reset Code"
+                  : twoFactorRequired ? "Verify & Sign In" : t("login.submit")}
             </Button>
+            {passwordResetMode && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setPasswordResetMode(false);
+                  setResetCodeSent(false);
+                  setError(null);
+                  setSuccessMessage(null);
+                }}
+              >
+                Back to Sign In
+              </Button>
+            )}
           </form>
 
           <div className="mt-6 text-center">

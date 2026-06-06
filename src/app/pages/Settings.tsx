@@ -75,6 +75,12 @@ type WorkHoursFormState = {
   full_day_minutes: string;
 };
 
+type PasswordFormState = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
 const defaultCompanyFormState: CompanyFormState = {
   name: "",
   email: "",
@@ -128,6 +134,12 @@ const defaultWorkHoursFormState: WorkHoursFormState = {
   full_day_minutes: "540",
 };
 
+const defaultPasswordFormState: PasswordFormState = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+};
+
 const parsePromptNumber = (value: string | null): number | null => {
   if (value === null) return null;
   const parsed = Number(value);
@@ -148,11 +160,13 @@ export function Settings() {
   );
   const [bioTimeForm, setBioTimeForm] = useState<BioTimeFormState>(defaultBioTimeFormState);
   const [workHoursForm, setWorkHoursForm] = useState<WorkHoursFormState>(defaultWorkHoursFormState);
+  const [passwordForm, setPasswordForm] = useState<PasswordFormState>(defaultPasswordFormState);
   const [companySaving, setCompanySaving] = useState(false);
   const [communicationSaving, setCommunicationSaving] = useState(false);
   const [bioTimeSaving, setBioTimeSaving] = useState(false);
   const [bioTimeSyncing, setBioTimeSyncing] = useState(false);
   const [workHoursSaving, setWorkHoursSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [broadcastNotificationForm, setBroadcastNotificationForm] = useState<BroadcastNotificationFormState>(
     defaultBroadcastNotificationFormState,
@@ -295,6 +309,25 @@ export function Settings() {
       await refreshUser();
     });
     setTwoFactorSaving(false);
+  };
+
+  const handleSavePassword = async () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setActionError("New password and confirmation do not match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    await runAction(async () => {
+      await authService.changePassword({
+        current_password: passwordForm.currentPassword,
+        password: passwordForm.newPassword,
+        password_confirmation: passwordForm.confirmPassword,
+      });
+      setPasswordForm(defaultPasswordFormState);
+      window.alert("Password changed successfully.");
+    });
+    setPasswordSaving(false);
   };
 
   const handleSaveCommunications = async () => {
@@ -594,6 +627,52 @@ export function Settings() {
               <CardTitle>Account Security</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    className="mt-2"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="new-account-password">New Password</Label>
+                  <Input
+                    id="new-account-password"
+                    type="password"
+                    className="mt-2"
+                    value={passwordForm.newPassword}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="confirm-account-password">Confirm New Password</Label>
+                  <Input
+                    id="confirm-account-password"
+                    type="password"
+                    className="mt-2"
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  disabled={
+                    passwordSaving
+                    || !passwordForm.currentPassword
+                    || passwordForm.newPassword.length < 8
+                    || !passwordForm.confirmPassword
+                  }
+                  onClick={() => void handleSavePassword()}
+                >
+                  {passwordSaving ? "Changing..." : "Change Password"}
+                </Button>
+              </div>
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div>
                   <div className="font-medium text-gray-900">Two-Factor Authentication (2FA)</div>

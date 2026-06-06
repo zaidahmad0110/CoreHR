@@ -548,7 +548,11 @@ class EmployeeController extends Controller
         $payload = $request->validated();
 
         $today = Carbon::today()->toDateString();
-        $record = $employee->attendanceRecords()->firstOrNew(['date' => $today]);
+        $record = $employee->attendanceRecords()
+            ->whereDate('date', $today)
+            ->whereNull('break_in')
+            ->whereNull('break_out')
+            ->first() ?? $employee->attendanceRecords()->make(['date' => $today]);
 
         $checkIn = $payload['check_in'] ?? null;
         $checkOut = $payload['check_out'] ?? null;
@@ -573,6 +577,9 @@ class EmployeeController extends Controller
         $record->date = $today;
         $record->check_in = $checkIn ? $checkIn.':00' : null;
         $record->check_out = $checkOut ? $checkOut.':00' : null;
+        $record->break_in = null;
+        $record->break_out = null;
+        $record->break_minutes = null;
         $record->work_minutes = $workMinutes;
         $record->status = $payload['status'];
         $record->save();
@@ -1045,6 +1052,9 @@ class EmployeeController extends Controller
             'date' => $record->date?->format('M d, Y'),
             'check_in' => $record->check_in ? $record->check_in->format('h:i A') : '-',
             'check_out' => $record->check_out ? $record->check_out->format('h:i A') : '-',
+            'break_in' => $record->break_in ? $record->break_in->format('h:i A') : '-',
+            'break_out' => $record->break_out ? $record->break_out->format('h:i A') : '-',
+            'break_duration' => $record->break_minutes ? $record->break_minutes.' Min' : '-',
             'status' => $record->status,
             'work_hours' => $record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-',
         ];
@@ -1307,12 +1317,12 @@ class EmployeeController extends Controller
     private function isPowerEmployeeUser(User $user, ?Employee $activeEmployee): bool
     {
         $role = strtolower(trim((string) $user->role));
-        if (in_array($role, ['admin', 'hr', 'ceo'], true)) {
+        if (in_array($role, ['admin', 'hr', 'ceo', 'gm', 'general manager'], true)) {
             return true;
         }
 
         $jobTitle = strtolower(trim((string) $activeEmployee?->job_title));
-        if (in_array($jobTitle, ['ceo', 'chief executive officer'], true)) {
+        if (in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)) {
             return true;
         }
 

@@ -21,12 +21,15 @@ use App\Http\Controllers\Api\TrainingController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/public/jobs', [RecruitmentController::class, 'publicJobs']);
 Route::post('/public/jobs/{jobPosting}/apply', [RecruitmentController::class, 'applyToPublicJob']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::patch('/auth/password', [AuthController::class, 'changePassword']);
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::patch('/auth/two-factor', [AuthController::class, 'updateTwoFactor']);
     Route::get('/privileges/me', [PrivilegeController::class, 'me']);
