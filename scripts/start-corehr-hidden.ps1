@@ -98,13 +98,13 @@ function Start-HiddenProcess {
         [string] $FilePath,
         [string[]] $Arguments,
         [string] $WorkingDirectory,
-        [int] $Port,
-        [string] $Address
+        [int] $Port = 0,
+        [string] $Address = ""
     )
 
     $pidFile = Join-Path $RuntimeDir "$Name.pid"
 
-    if (Test-PortListener -Port $Port -Address $Address) {
+    if ($Port -gt 0 -and (Test-PortListener -Port $Port -Address $Address)) {
         Add-Content -Path (Join-Path $RuntimeDir "corehr-launcher.log") -Value "$(Get-Date -Format s) $Name $Address`:$Port already has a listener."
         return
     }
@@ -166,3 +166,9 @@ Start-HiddenProcess `
     -WorkingDirectory $RootDir `
     -Port $FrontendPort `
     -Address $HostAddress
+
+Start-HiddenProcess `
+    -Name "scheduler" `
+    -FilePath $php `
+    -Arguments @("artisan", "schedule:work") `
+    -WorkingDirectory $BackendDir

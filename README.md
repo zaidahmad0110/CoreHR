@@ -184,6 +184,7 @@ This starts:
 
 - Laravel backend on `http://localhost:8000`
 - Vite frontend on `http://localhost:5173`
+- Laravel scheduler for automatic jobs, including BioTime attendance sync every 15 minutes
 
 To stop both background processes, double-click:
 
@@ -195,6 +196,15 @@ Runtime logs and PID files are stored in:
 
 ```text
 .corehr-runtime/
+```
+
+Useful log files:
+
+```text
+.corehr-runtime/backend.out.log
+.corehr-runtime/frontend.out.log
+.corehr-runtime/scheduler.out.log
+.corehr-runtime/corehr-launcher.log
 ```
 
 If PHP is not found automatically, set the PHP path once in Windows PowerShell:

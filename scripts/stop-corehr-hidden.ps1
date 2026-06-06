@@ -71,7 +71,7 @@ function Stop-PortListener {
     }
 }
 
-foreach ($name in @("backend", "frontend")) {
+foreach ($name in @("backend", "frontend", "scheduler")) {
     $pidFile = Join-Path $RuntimeDir "$name.pid"
 
     if (-not (Test-Path $pidFile)) {
