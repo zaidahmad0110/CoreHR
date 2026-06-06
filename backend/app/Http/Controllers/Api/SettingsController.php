@@ -16,11 +16,14 @@ use App\Models\CompanySetting;
 use App\Models\Employee;
 use App\Models\Holiday;
 use App\Models\LeaveType;
+use App\Models\OrganizationChartPosition;
 use App\Models\PayrollAllowanceType;
 use App\Models\PayrollDeductionType;
+use App\Models\User;
 use App\Services\MessagingService;
 use App\Services\BioTimeSyncService;
 use App\Services\NotificationService;
+use App\Services\UserPrivilegeService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,6 +35,7 @@ class SettingsController extends Controller
         private readonly NotificationService $notificationService,
         private readonly MessagingService $messagingService,
         private readonly BioTimeSyncService $bioTimeSyncService,
+        private readonly UserPrivilegeService $privilegeService,
     ) {
     }
 
@@ -606,18 +610,53 @@ class SettingsController extends Controller
         }
 
         $role = strtolower(trim((string) $user->role));
-        if (in_array($role, ['admin', 'hr'], true)) {
+        if ($role === 'admin') {
             return true;
         }
 
+        $permissions = $this->privilegeService->resolveForUser($user);
+        if (! (bool) ($permissions['settings'] ?? false)) {
+            return false;
+        }
+
+        if (! $this->userIsOnOrganizationChart($user)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function userIsOnOrganizationChart(User $user): bool
+    {
+        $names = collect([
+            trim((string) $user->name),
+        ]);
+
         $employee = Employee::query()
-            ->with('department')
-            ->where('email', $user->email)
+            ->whereRaw('LOWER(email) = ?', [strtolower((string) $user->email)])
             ->first();
 
-        $departmentName = strtolower(trim((string) $employee?->department?->name));
+        if ($employee) {
+            $names->push(trim((string) $employee->name));
+        }
 
-        return in_array($departmentName, ['human resources', 'hr'], true);
+        $names = $names
+            ->filter()
+            ->map(fn (string $name): string => strtolower($name))
+            ->unique()
+            ->values();
+
+        if ($names->isEmpty()) {
+            return false;
+        }
+
+        return OrganizationChartPosition::query()
+            ->where(function ($query) use ($names): void {
+                foreach ($names as $name) {
+                    $query->orWhereRaw('LOWER(person_name) = ?', [$name]);
+                }
+            })
+            ->exists();
     }
 
     private function serializeLeaveType(LeaveType $type): array

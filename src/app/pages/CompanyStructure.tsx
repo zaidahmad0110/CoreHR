@@ -90,25 +90,7 @@ const defaultChartFallback = {
   ] as OrganizationChartPosition[],
 };
 
-const managementTitleKeywords = [
-  "manager",
-  "director",
-  "head",
-  "chief",
-  "vice president",
-  "vp",
-  "president",
-];
-
-const isHrDepartment = (department: string | null | undefined) => {
-  const normalized = (department ?? "").trim().toLowerCase();
-  return normalized === "human resources" || normalized === "hr";
-};
-
-const hasManagerOrHigherTitle = (jobTitle: string | null | undefined) => {
-  const normalized = (jobTitle ?? "").toLowerCase();
-  return managementTitleKeywords.some((keyword) => normalized.includes(keyword));
-};
+const normalizeName = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
 
 export function CompanyStructure() {
   const { user } = useAuth();
@@ -165,12 +147,29 @@ export function CompanyStructure() {
       return true;
     }
 
-    if (!isHrDepartment(user.department)) {
+    if (!user.permissions?.company_structure) {
       return false;
     }
 
-    return hasManagerOrHigherTitle(user.job_title);
-  }, [user]);
+    const currentEmployee = employees.find((employee) => normalizeName(employee.email) === normalizeName(user.email));
+    const userNames = new Set(
+      [user.name, currentEmployee?.name]
+        .map((name) => normalizeName(name))
+        .filter(Boolean),
+    );
+    const chartNames = new Set(
+      [ceoNode, ...executiveNodes]
+        .map((node) => normalizeName(node.person_name))
+        .filter(Boolean),
+    );
+    const isOnOrganizationChart = [...userNames].some((name) => chartNames.has(name));
+
+    if (!isOnOrganizationChart) {
+      return false;
+    }
+
+    return true;
+  }, [ceoNode, employees, executiveNodes, user]);
 
   const resolvePersonSelection = (personName: string) => {
     const matchedEmployee = employees.find((employee) => employee.name === personName);
@@ -207,7 +206,7 @@ export function CompanyStructure() {
 
   const handleSaveDepartment = async () => {
     if (!canManageStructure) {
-      setDepartmentError("Only HR manager or higher can edit company structure.");
+      setDepartmentError("You need company structure access and an Organization Chart role to edit.");
       return;
     }
 
@@ -273,7 +272,7 @@ export function CompanyStructure() {
 
   const handleSaveBranch = async () => {
     if (!canManageStructure) {
-      setBranchError("Only HR manager or higher can edit company structure.");
+      setBranchError("You need company structure access and an Organization Chart role to edit.");
       return;
     }
 
@@ -539,7 +538,7 @@ export function CompanyStructure() {
 
   const handleSaveOrganizationChart = async () => {
     if (!canManageStructure) {
-      setChartError("Only HR manager or higher can edit company structure.");
+      setChartError("You need company structure access and an Organization Chart role to edit.");
       return;
     }
 

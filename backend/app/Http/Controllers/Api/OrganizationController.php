@@ -11,12 +11,17 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\OrganizationChartPosition;
 use App\Models\User;
+use App\Services\UserPrivilegeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class OrganizationController extends Controller
 {
+    public function __construct(private readonly UserPrivilegeService $privilegeService)
+    {
+    }
+
     private const DEFAULT_ORGANIZATION_CHART = [
         [
             'role_key' => 'ceo',
@@ -287,34 +292,49 @@ class OrganizationController extends Controller
             return true;
         }
 
-        $employee = \App\Models\Employee::query()
-            ->with('department')
-            ->where('email', $user->email)
-            ->first();
-
-        $departmentName = strtolower(trim((string) $employee?->department?->name));
-        if (! in_array($departmentName, ['human resources', 'hr'], true)) {
+        $permissions = $this->privilegeService->resolveForUser($user);
+        if (! (bool) ($permissions['company_structure'] ?? false)) {
             return false;
         }
 
-        $jobTitle = strtolower((string) $employee?->job_title);
-        $managerKeywords = [
-            'manager',
-            'director',
-            'head',
-            'chief',
-            'vice president',
-            'vp',
-            'president',
-        ];
-
-        foreach ($managerKeywords as $keyword) {
-            if (str_contains($jobTitle, $keyword)) {
-                return true;
-            }
+        if (! $this->userIsOnOrganizationChart($user)) {
+            return false;
         }
 
-        return false;
+        return true;
+    }
+
+    private function userIsOnOrganizationChart(User $user): bool
+    {
+        $names = collect([
+            trim((string) $user->name),
+        ]);
+
+        $employee = Employee::query()
+            ->whereRaw('LOWER(email) = ?', [strtolower((string) $user->email)])
+            ->first();
+
+        if ($employee) {
+            $names->push(trim((string) $employee->name));
+        }
+
+        $names = $names
+            ->filter()
+            ->map(fn (string $name): string => strtolower($name))
+            ->unique()
+            ->values();
+
+        if ($names->isEmpty()) {
+            return false;
+        }
+
+        return OrganizationChartPosition::query()
+            ->where(function ($query) use ($names): void {
+                foreach ($names as $name) {
+                    $query->orWhereRaw('LOWER(person_name) = ?', [$name]);
+                }
+            })
+            ->exists();
     }
 
     private function getOrganizationChartPositions()
