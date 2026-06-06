@@ -14,6 +14,11 @@ use RuntimeException;
 
 class BioTimeSyncService
 {
+    /**
+     * @var array{start_time: string, full_day_minutes: int}|null
+     */
+    private ?array $workHourSettings = null;
+
     public function sync(?Carbon $startTime = null, ?Carbon $endTime = null): array
     {
         $settings = CompanySetting::query()->first();
@@ -229,11 +234,45 @@ class BioTimeSyncService
 
     private function resolveAttendanceStatus(Carbon $checkIn, ?int $workMinutes): string
     {
-        if ($workMinutes !== null && $workMinutes >= 540) {
+        $settings = $this->resolveWorkHourSettings();
+
+        if ($workMinutes !== null && $workMinutes >= $settings['full_day_minutes']) {
             return 'Overtime';
         }
 
-        return $checkIn->format('H:i:s') > '09:00:00' ? 'Late' : 'Present';
+        return $checkIn->format('H:i:s') > $settings['start_time'] ? 'Late' : 'Present';
+    }
+
+    /**
+     * @return array{start_time: string, full_day_minutes: int}
+     */
+    private function resolveWorkHourSettings(): array
+    {
+        if ($this->workHourSettings !== null) {
+            return $this->workHourSettings;
+        }
+
+        $settings = CompanySetting::query()->first();
+
+        return $this->workHourSettings = [
+            'start_time' => $this->normalizeWorkTime((string) ($settings?->work_start_time ?? '09:00:00')),
+            'full_day_minutes' => max((int) ($settings?->work_full_day_minutes ?? 540), 1),
+        ];
+    }
+
+    private function normalizeWorkTime(string $value): string
+    {
+        $time = trim($value);
+
+        if (preg_match('/^\d{2}:\d{2}$/', $time) === 1) {
+            return $time.':00';
+        }
+
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $time) === 1) {
+            return $time;
+        }
+
+        return '09:00:00';
     }
 
     private function resolveExternalId(array $transaction, string $empCode, Carbon $punchTime): string

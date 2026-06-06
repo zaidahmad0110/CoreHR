@@ -59,6 +59,9 @@ class SettingsController extends Controller
         'biotime_password' => null,
         'biotime_timeout' => 20,
         'biotime_last_sync_at' => null,
+        'work_start_time' => '09:00:00',
+        'work_end_time' => '18:00:00',
+        'work_full_day_minutes' => 540,
         'notify_leave_requests' => true,
         'notify_attendance_alerts' => true,
         'notify_expense_approvals' => true,
@@ -136,6 +139,7 @@ class SettingsController extends Controller
                     'payroll_reminders' => (bool) $companySetting->notify_payroll_reminders,
                 ],
                 'biotime' => $this->serializeBioTimeSettings($companySetting),
+                'work_hours' => $this->serializeWorkHourSettings($companySetting),
                 'permissions' => [
                     'can_manage' => $this->userCanManageSettings($request),
                 ],
@@ -323,6 +327,29 @@ class SettingsController extends Controller
         return response()->json([
             'message' => 'BioTime attendance sync completed successfully.',
             'data' => $result,
+        ]);
+    }
+
+    public function updateWorkHours(Request $request): JsonResponse
+    {
+        $this->ensureSettingsManagementPermission($request);
+
+        $validated = $request->validate([
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'full_day_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+        ]);
+
+        $companySetting = $this->resolveCompanySetting();
+        $companySetting->update([
+            'work_start_time' => $validated['start_time'].':00',
+            'work_end_time' => $validated['end_time'].':00',
+            'work_full_day_minutes' => (int) $validated['full_day_minutes'],
+        ]);
+
+        return response()->json([
+            'message' => 'Work hour settings updated successfully.',
+            'data' => $this->serializeWorkHourSettings($companySetting),
         ]);
     }
 
@@ -656,6 +683,18 @@ class SettingsController extends Controller
             'password' => $companySetting->biotime_password,
             'timeout' => $companySetting->biotime_timeout ?? 20,
             'last_sync_at' => $companySetting->biotime_last_sync_at?->toDateTimeString(),
+        ];
+    }
+
+    private function serializeWorkHourSettings(CompanySetting $companySetting): array
+    {
+        $fullDayMinutes = (int) ($companySetting->work_full_day_minutes ?? 540);
+
+        return [
+            'start_time' => substr((string) ($companySetting->work_start_time ?? '09:00:00'), 0, 5),
+            'end_time' => substr((string) ($companySetting->work_end_time ?? '18:00:00'), 0, 5),
+            'full_day_minutes' => $fullDayMinutes,
+            'full_day_hours' => round($fullDayMinutes / 60, 2),
         ];
     }
 

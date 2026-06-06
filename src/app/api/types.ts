@@ -669,6 +669,12 @@ export interface SettingsData {
     timeout: number | null;
     last_sync_at: string | null;
   };
+  work_hours: {
+    start_time: string;
+    end_time: string;
+    full_day_minutes: number;
+    full_day_hours: number;
+  };
   permissions: {
     can_manage: boolean;
   };

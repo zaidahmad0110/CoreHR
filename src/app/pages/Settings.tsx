@@ -69,6 +69,12 @@ type BioTimeFormState = {
   timeout: string;
 };
 
+type WorkHoursFormState = {
+  start_time: string;
+  end_time: string;
+  full_day_minutes: string;
+};
+
 const defaultCompanyFormState: CompanyFormState = {
   name: "",
   email: "",
@@ -116,6 +122,12 @@ const defaultBioTimeFormState: BioTimeFormState = {
   timeout: "20",
 };
 
+const defaultWorkHoursFormState: WorkHoursFormState = {
+  start_time: "09:00",
+  end_time: "18:00",
+  full_day_minutes: "540",
+};
+
 const parsePromptNumber = (value: string | null): number | null => {
   if (value === null) return null;
   const parsed = Number(value);
@@ -135,10 +147,12 @@ export function Settings() {
     defaultCommunicationFormState,
   );
   const [bioTimeForm, setBioTimeForm] = useState<BioTimeFormState>(defaultBioTimeFormState);
+  const [workHoursForm, setWorkHoursForm] = useState<WorkHoursFormState>(defaultWorkHoursFormState);
   const [companySaving, setCompanySaving] = useState(false);
   const [communicationSaving, setCommunicationSaving] = useState(false);
   const [bioTimeSaving, setBioTimeSaving] = useState(false);
   const [bioTimeSyncing, setBioTimeSyncing] = useState(false);
+  const [workHoursSaving, setWorkHoursSaving] = useState(false);
   const [notificationSaving, setNotificationSaving] = useState(false);
   const [broadcastNotificationForm, setBroadcastNotificationForm] = useState<BroadcastNotificationFormState>(
     defaultBroadcastNotificationFormState,
@@ -183,6 +197,13 @@ export function Settings() {
       username: data.biotime.username ?? "",
       password: data.biotime.password ?? "",
       timeout: data.biotime.timeout != null ? String(data.biotime.timeout) : "20",
+    });
+    setWorkHoursForm({
+      start_time: data.work_hours.start_time ?? "09:00",
+      end_time: data.work_hours.end_time ?? "18:00",
+      full_day_minutes: data.work_hours.full_day_minutes != null
+        ? String(data.work_hours.full_day_minutes)
+        : "540",
     });
   }, [data]);
 
@@ -339,6 +360,25 @@ export function Settings() {
     setBioTimeSyncing(false);
   };
 
+  const handleSaveWorkHours = async () => {
+    const fullDayMinutes = Number(workHoursForm.full_day_minutes);
+
+    if (!Number.isFinite(fullDayMinutes) || fullDayMinutes <= 0 || fullDayMinutes > 1440) {
+      setActionError("Full day minutes must be between 1 and 1440.");
+      return;
+    }
+
+    setWorkHoursSaving(true);
+    await runAction(async () => {
+      await settingsService.updateWorkHours({
+        start_time: workHoursForm.start_time,
+        end_time: workHoursForm.end_time,
+        full_day_minutes: Math.round(fullDayMinutes),
+      });
+    });
+    setWorkHoursSaving(false);
+  };
+
   const handleUpsertLeaveType = async (item?: SettingsData["leave_types"][number]) => {
     const name = window.prompt("Leave type name", item?.name ?? "");
     if (!name) return;
@@ -422,6 +462,7 @@ export function Settings() {
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="communications">Email & SMS</TabsTrigger>
           <TabsTrigger value="biotime">BioTime</TabsTrigger>
+          <TabsTrigger value="work-hours">Work Hours</TabsTrigger>
           <TabsTrigger value="leave">Leave Types</TabsTrigger>
           <TabsTrigger value="payroll">Payroll Settings</TabsTrigger>
           <TabsTrigger value="holidays">Holidays</TabsTrigger>
@@ -748,6 +789,68 @@ export function Settings() {
                     {bioTimeSaving ? "Saving..." : "Save BioTime Settings"}
                   </Button>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="work-hours" className="space-y-6">
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle>Work Hours</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="work-start-time">Work Start Time</Label>
+                  <Input
+                    id="work-start-time"
+                    type="time"
+                    className="mt-2"
+                    disabled={loading || !canManageSettings || workHoursSaving}
+                    value={workHoursForm.start_time}
+                    onChange={(event) => setWorkHoursForm((prev) => ({ ...prev, start_time: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="work-end-time">Work End Time</Label>
+                  <Input
+                    id="work-end-time"
+                    type="time"
+                    className="mt-2"
+                    disabled={loading || !canManageSettings || workHoursSaving}
+                    value={workHoursForm.end_time}
+                    onChange={(event) => setWorkHoursForm((prev) => ({ ...prev, end_time: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="work-full-day-minutes">Full Day Minutes</Label>
+                  <Input
+                    id="work-full-day-minutes"
+                    type="number"
+                    min="1"
+                    max="1440"
+                    className="mt-2"
+                    disabled={loading || !canManageSettings || workHoursSaving}
+                    value={workHoursForm.full_day_minutes}
+                    onChange={(event) => setWorkHoursForm((prev) => ({ ...prev, full_day_minutes: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                BioTime uses the first punch as check-in and the last punch as check-out. Check-ins after the start time are Late. Work minutes at or above the full day value are Overtime.
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
+                  disabled={loading || !canManageSettings || workHoursSaving}
+                  onClick={() => void handleSaveWorkHours()}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {workHoursSaving ? "Saving..." : "Save Work Hours"}
+                </Button>
               </div>
             </CardContent>
           </Card>

@@ -833,6 +833,12 @@ export const settingsService = {
       body: payload,
     });
   },
+  updateWorkHours(payload: Pick<SettingsData["work_hours"], "start_time" | "end_time" | "full_day_minutes">) {
+    return apiRequest<SettingsData["work_hours"]>("/api/settings/work-hours", {
+      method: "PATCH",
+      body: payload,
+    });
+  },
   syncBioTime(payload?: { start_time?: string; end_time?: string }) {
     return apiRequest<BioTimeSyncResult>("/api/settings/biotime/sync", {
       method: "POST",
