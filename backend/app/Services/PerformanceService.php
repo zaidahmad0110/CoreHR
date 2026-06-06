@@ -47,7 +47,9 @@ class PerformanceService
                 'goals_completed_rate' => $goalsCompletionRate,
                 'top_performers' => $reviews->where('rating', '>=', 4.5)->count(),
             ],
-            'predictive_analytics' => $this->predictiveAnalyticsService->buildEmployeePerformancePredictions(),
+            'predictive_analytics' => $this->predictiveAnalyticsService->buildEmployeePerformancePredictions(
+                $this->resolvePredictiveAnalyticsEmployeeIds($context),
+            ),
             'creatable_employees' => $this->buildCreatableEmployees($context),
             'reviews' => $reviews
                 ->map(fn (PerformanceReview $review): array => $this->serializeReview($review, $context))
@@ -304,8 +306,11 @@ class PerformanceService
             ->where('email', $actor->email)
             ->first();
 
-        $isGlobal = strcasecmp((string) $actor->role, 'Admin') === 0
-            || strcasecmp((string) $actor->role, 'HR') === 0
+        $actorRole = strtolower(trim((string) $actor->role));
+        $actorJobTitle = strtolower(trim((string) $actorEmployee?->job_title));
+
+        $isGlobal = in_array($actorRole, ['admin', 'hr', 'ceo', 'gm', 'general manager'], true)
+            || in_array($actorJobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)
             || in_array(
                 strtolower(trim((string) $actorEmployee?->department?->name)),
                 ['human resources', 'hr'],
@@ -328,6 +333,20 @@ class PerformanceService
             'actor_department_id' => $actorEmployee?->department_id ? (int) $actorEmployee->department_id : null,
             'actor_department_name' => $actorEmployee?->department?->name ? (string) $actorEmployee->department->name : null,
         ];
+    }
+
+    private function resolvePredictiveAnalyticsEmployeeIds(array $context): ?array
+    {
+        if ($context['is_global']) {
+            return null;
+        }
+
+        $employeeId = (int) ($context['employee_id'] ?? 0);
+        if ($employeeId <= 0) {
+            return [];
+        }
+
+        return [$employeeId];
     }
 
     private function applyContextScope($query, array $context): void

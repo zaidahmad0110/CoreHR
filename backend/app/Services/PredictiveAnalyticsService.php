@@ -8,7 +8,10 @@ use Illuminate\Support\Collection;
 
 class PredictiveAnalyticsService
 {
-    public function buildEmployeePerformancePredictions(): array
+    /**
+     * @param  array<int>|null  $employeeIds  Null means unrestricted; empty means no accessible employees.
+     */
+    public function buildEmployeePerformancePredictions(?array $employeeIds = null): array
     {
         $employees = Employee::query()
             ->with([
@@ -19,6 +22,7 @@ class PredictiveAnalyticsService
                     ->limit(3),
             ])
             ->where('status', 'Active')
+            ->when($employeeIds !== null, fn ($query) => $query->whereIn('id', $employeeIds))
             ->orderBy('name')
             ->get();
 
@@ -129,4 +133,3 @@ class PredictiveAnalyticsService
         return 'Keep current development plan and monitor monthly.';
     }
 }
-
