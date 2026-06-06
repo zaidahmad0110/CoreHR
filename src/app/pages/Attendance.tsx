@@ -255,9 +255,11 @@ export function Attendance() {
                     <TableCell className="text-gray-700">{record.break_duration}</TableCell>
                     <TableCell className="font-medium text-gray-900">{record.work_hours}</TableCell>
                     <TableCell>
-                      <Badge className={getStatusColor(record.status)} variant="secondary">
-                        {record.status}
-                      </Badge>
+                      {record.status ? (
+                        <Badge className={getStatusColor(record.status)} variant="secondary">
+                          {record.status}
+                        </Badge>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}

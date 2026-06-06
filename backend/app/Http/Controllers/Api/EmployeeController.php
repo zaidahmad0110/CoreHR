@@ -242,10 +242,12 @@ class EmployeeController extends Controller
         $employee->load(['leaveRequests']);
 
         $attendanceHistory = $employee->attendanceRecords()
-            ->latest('date')
+            ->orderByDesc('date')
+            ->orderByRaw('break_in IS NULL DESC')
+            ->orderBy('break_in')
             ->limit(30)
-            ->get()
-            ->map(fn (AttendanceRecord $record): array => $this->serializeAttendanceRecord($record));
+            ->get();
+        $attendanceHistory = $this->serializeAttendanceRecordsForDisplay($attendanceHistory);
 
         $leaveHistory = $employee->leaveRequests()
             ->latest('start_date')
@@ -1047,16 +1049,37 @@ class EmployeeController extends Controller
 
     private function serializeAttendanceRecord(AttendanceRecord $record): array
     {
+        return $this->serializeAttendanceRecordForDisplay($record);
+    }
+
+    private function serializeAttendanceRecordsForDisplay($records): array
+    {
+        $displayedSummaryKeys = [];
+
+        return $records
+            ->map(function (AttendanceRecord $record) use (&$displayedSummaryKeys): array {
+                $summaryKey = $record->employee_id.'|'.$record->date?->toDateString();
+                $showDailySummary = ! isset($displayedSummaryKeys[$summaryKey]);
+                $displayedSummaryKeys[$summaryKey] = true;
+
+                return $this->serializeAttendanceRecordForDisplay($record, $showDailySummary);
+            })
+            ->values()
+            ->all();
+    }
+
+    private function serializeAttendanceRecordForDisplay(AttendanceRecord $record, bool $showDailySummary = true): array
+    {
         return [
             'id' => $record->id,
             'date' => $record->date?->format('M d, Y'),
-            'check_in' => $record->check_in ? $record->check_in->format('h:i A') : '-',
-            'check_out' => $record->check_out ? $record->check_out->format('h:i A') : '-',
+            'check_in' => $showDailySummary ? ($record->check_in ? $record->check_in->format('h:i A') : '-') : '',
+            'check_out' => $showDailySummary ? ($record->check_out ? $record->check_out->format('h:i A') : '-') : '',
             'break_in' => $record->break_in ? $record->break_in->format('h:i A') : '-',
             'break_out' => $record->break_out ? $record->break_out->format('h:i A') : '-',
             'break_duration' => $record->break_minutes ? $record->break_minutes.' Min' : '-',
-            'status' => $record->status,
-            'work_hours' => $record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-',
+            'status' => $showDailySummary ? $record->status : '',
+            'work_hours' => $showDailySummary ? ($record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-') : '',
         ];
     }
 

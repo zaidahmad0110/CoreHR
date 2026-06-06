@@ -1035,9 +1035,11 @@ export function EmployeeProfile() {
                         <TableCell>{record.break_out ?? "-"}</TableCell>
                         <TableCell>{record.break_duration ?? "-"}</TableCell>
                         <TableCell>
-                          <Badge className={getAttendanceStatusClassName(record.status)} variant="secondary">
-                            {record.status}
-                          </Badge>
+                          {record.status ? (
+                            <Badge className={getAttendanceStatusClassName(record.status)} variant="secondary">
+                              {record.status}
+                            </Badge>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     ))}
