@@ -74,6 +74,7 @@ export function Attendance() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Present":
+      case "Early":
         return "bg-green-100 text-green-700";
       case "Late":
         return "bg-yellow-100 text-yellow-700";

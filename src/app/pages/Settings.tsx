@@ -345,16 +345,17 @@ export function Settings() {
     setBioTimeSaving(false);
   };
 
-  const handleSyncBioTime = async () => {
+  const handleSyncBioTime = async (fullSync = false) => {
     setBioTimeSyncing(true);
     await runAction(async () => {
-      const result = await settingsService.syncBioTime();
+      const result = await settingsService.syncBioTime(fullSync ? { full_sync: true } : undefined);
       const unmatched = result.unmatched_emp_codes.length > 0
         ? ` Unmatched BioTime employee codes: ${result.unmatched_emp_codes.join(", ")}.`
         : "";
+      const syncScope = fullSync ? " Historical sync" : "";
 
       window.alert(
-        `BioTime sync completed. Fetched ${result.fetched}, imported ${result.imported}, updated ${result.attendance_updated} attendance records.${unmatched}`,
+        `BioTime sync completed.${syncScope} Fetched ${result.fetched}, imported ${result.imported}, updated ${result.attendance_updated} attendance records, marked ${result.absent_marked} absent today.${unmatched}`,
       );
     });
     setBioTimeSyncing(false);
@@ -781,6 +782,14 @@ export function Settings() {
                     {bioTimeSyncing ? "Syncing..." : "Sync Now"}
                   </Button>
                   <Button
+                    variant="outline"
+                    disabled={loading || !canManageSettings || bioTimeSaving || bioTimeSyncing}
+                    onClick={() => void handleSyncBioTime(true)}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync History
+                  </Button>
+                  <Button
                     className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
                     disabled={loading || !canManageSettings || bioTimeSaving || bioTimeSyncing}
                     onClick={() => void handleSaveBioTime()}
@@ -839,7 +848,7 @@ export function Settings() {
               </div>
 
               <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                BioTime uses the first punch as check-in and the last punch as check-out. Check-ins after the start time are Late. Work minutes at or above the full day value are Overtime.
+                BioTime uses the first punch as check-in and the last punch as check-out. Before start time is Early, exactly on start time is Present, and after start time is Late.
               </div>
 
               <div className="flex justify-end pt-2">

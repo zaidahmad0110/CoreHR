@@ -19,7 +19,7 @@ class AttendanceService
         return [
             'date' => $date->toDateString(),
             'stats' => [
-                'present' => $records->whereIn('status', ['Present', 'Overtime'])->count(),
+                'present' => $records->whereIn('status', ['Present', 'Early', 'Overtime'])->count(),
                 'late' => $records->where('status', 'Late')->count(),
                 'absent' => $records->where('status', 'Absent')->count(),
                 'overtime' => $records->where('status', 'Overtime')->count(),

@@ -839,7 +839,7 @@ export const settingsService = {
       body: payload,
     });
   },
-  syncBioTime(payload?: { start_time?: string; end_time?: string }) {
+  syncBioTime(payload?: { start_time?: string; end_time?: string; full_sync?: boolean }) {
     return apiRequest<BioTimeSyncResult>("/api/settings/biotime/sync", {
       method: "POST",
       body: payload ?? {},

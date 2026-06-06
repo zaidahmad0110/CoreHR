@@ -15,13 +15,14 @@ Artisan::command('payroll:generate-monthly', function (PayrollService $payrollSe
     $this->info('Payroll generation sync completed.');
 })->purpose('Generate payroll periods/items from attendance and trigger workflow notifications.');
 
-Artisan::command('attendance:sync-biotime', function (BioTimeSyncService $bioTimeSyncService) {
-    $result = $bioTimeSyncService->sync();
+Artisan::command('attendance:sync-biotime {--full : Import all historical BioTime transactions}', function (BioTimeSyncService $bioTimeSyncService) {
+    $result = $bioTimeSyncService->sync(fullSync: (bool) $this->option('full'));
     $this->info(sprintf(
-        'BioTime sync completed. Fetched: %d, imported: %d, attendance updated: %d.',
+        'BioTime sync completed. Fetched: %d, imported: %d, attendance updated: %d, absent marked: %d.',
         $result['fetched'],
         $result['imported'],
         $result['attendance_updated'],
+        $result['absent_marked'] ?? 0,
     ));
 })->purpose('Import attendance punches from BioTime into CoreHR.');
 

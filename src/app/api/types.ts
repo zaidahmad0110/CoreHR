@@ -245,7 +245,7 @@ export interface EmployeeAssetPayload {
 export interface TodayAttendancePayload {
   check_in?: string;
   check_out?: string;
-  status: "Present" | "Late" | "Absent" | "Overtime";
+  status: "Present" | "Early" | "Late" | "Absent" | "Overtime";
 }
 
 export interface DepartmentItem {
@@ -684,6 +684,7 @@ export interface BioTimeSyncResult {
   fetched: number;
   imported: number;
   attendance_updated: number;
+  absent_marked: number;
   unmatched_emp_codes: string[];
   start_time: string;
   end_time: string;

@@ -24,7 +24,7 @@ class UpsertEmployeeTodayAttendanceRequest extends FormRequest
         return [
             'check_in' => ['nullable', 'date_format:H:i'],
             'check_out' => ['nullable', 'date_format:H:i'],
-            'status' => ['required', 'in:Present,Late,Absent,Overtime'],
+            'status' => ['required', 'in:Present,Early,Late,Absent,Overtime'],
         ];
     }
 }

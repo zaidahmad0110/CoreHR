@@ -19,9 +19,10 @@ class BioTimeSyncService
      */
     private ?array $workHourSettings = null;
 
-    public function sync(?Carbon $startTime = null, ?Carbon $endTime = null): array
+    public function sync(?Carbon $startTime = null, ?Carbon $endTime = null, bool $fullSync = false): array
     {
         $settings = CompanySetting::query()->first();
+        $this->workHourSettings = null;
 
         if (! $settings || ! $settings->biotime_enabled) {
             throw new RuntimeException('BioTime integration is not enabled.');
@@ -37,9 +38,7 @@ class BioTimeSyncService
         }
 
         $endTime ??= now();
-        $startTime ??= $settings->biotime_last_sync_at
-            ? Carbon::parse($settings->biotime_last_sync_at)->subDay()
-            : $endTime->copy()->subDays(7);
+        $startTime ??= $this->resolveSyncStartTime($settings, $endTime, $fullSync);
 
         $token = $this->authenticate($baseUrl, $username, $password, $timeout);
         $transactions = $this->fetchTransactions($baseUrl, $token, $startTime, $endTime, $timeout);
@@ -87,12 +86,14 @@ class BioTimeSyncService
         }
 
         $updatedAttendance = $this->rebuildAttendanceFromPunches($startTime, $endTime);
+        $absentMarked = $this->markMissingTodayAsAbsent($startTime, $endTime);
         $settings->forceFill(['biotime_last_sync_at' => now()])->save();
 
         return [
             'fetched' => $transactions->count(),
             'imported' => $imported,
-            'attendance_updated' => $updatedAttendance,
+            'attendance_updated' => $updatedAttendance + $absentMarked,
+            'absent_marked' => $absentMarked,
             'unmatched_emp_codes' => array_values(array_keys($unmatchedCodes)),
             'start_time' => $startTime->toDateTimeString(),
             'end_time' => $endTime->toDateTimeString(),
@@ -122,6 +123,15 @@ class BioTimeSyncService
         }
 
         return trim($token);
+    }
+
+    private function resolveSyncStartTime(CompanySetting $settings, Carbon $endTime, bool $fullSync): Carbon
+    {
+        if ($fullSync || ! $settings->biotime_last_sync_at) {
+            return Carbon::create(2000, 1, 1, 0, 0, 0, $endTime->timezone);
+        }
+
+        return Carbon::parse($settings->biotime_last_sync_at)->subDay();
     }
 
     private function fetchTransactions(
@@ -158,7 +168,7 @@ class BioTimeSyncService
 
             $hasNext = ! empty($payload['next']) || $rows->count() === $limit;
             $page++;
-        } while ($hasNext && $page <= 100);
+        } while ($hasNext && $page <= 1000);
 
         return $allRows;
     }
@@ -236,11 +246,47 @@ class BioTimeSyncService
     {
         $settings = $this->resolveWorkHourSettings();
 
-        if ($workMinutes !== null && $workMinutes >= $settings['full_day_minutes']) {
-            return 'Overtime';
+        if ($checkIn->format('H:i:s') < $settings['start_time']) {
+            return 'Early';
         }
 
-        return $checkIn->format('H:i:s') > $settings['start_time'] ? 'Late' : 'Present';
+        if ($checkIn->format('H:i:s') === $settings['start_time']) {
+            return 'Present';
+        }
+
+        return 'Late';
+    }
+
+    private function markMissingTodayAsAbsent(Carbon $startTime, Carbon $endTime): int
+    {
+        $today = now()->toDateString();
+
+        if ($startTime->toDateString() > $today || $endTime->toDateString() < $today) {
+            return 0;
+        }
+
+        $existingEmployeeIds = AttendanceRecord::query()
+            ->whereDate('date', $today)
+            ->pluck('employee_id')
+            ->all();
+
+        $missingEmployeeIds = Employee::query()
+            ->where('status', 'Active')
+            ->whereNotIn('id', $existingEmployeeIds)
+            ->pluck('id');
+
+        foreach ($missingEmployeeIds as $employeeId) {
+            AttendanceRecord::query()->create([
+                'employee_id' => $employeeId,
+                'date' => $today,
+                'check_in' => null,
+                'check_out' => null,
+                'work_minutes' => null,
+                'status' => 'Absent',
+            ]);
+        }
+
+        return $missingEmployeeIds->count();
     }
 
     /**

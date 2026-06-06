@@ -77,7 +77,7 @@ type AssetFormState = {
 type AttendanceFormState = {
   checkIn: string;
   checkOut: string;
-  status: "Present" | "Late" | "Absent" | "Overtime";
+  status: "Present" | "Early" | "Late" | "Absent" | "Overtime";
 };
 
 const defaultEmployeeFormState: EmployeeFormState = {
@@ -176,7 +176,7 @@ const parseTimeForInput = (value: string | null | undefined): string => {
 };
 
 const getAttendanceStatusClassName = (status: string) => {
-  if (status === "Present" || status === "Overtime") {
+  if (status === "Present" || status === "Early" || status === "Overtime") {
     return "bg-green-100 text-green-700";
   }
 
@@ -1668,6 +1668,7 @@ export function EmployeeProfile() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Present">Present</SelectItem>
+                  <SelectItem value="Early">Early</SelectItem>
                   <SelectItem value="Late">Late</SelectItem>
                   <SelectItem value="Absent">Absent</SelectItem>
                   <SelectItem value="Overtime">Overtime</SelectItem>

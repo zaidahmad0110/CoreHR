@@ -317,11 +317,13 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'start_time' => ['nullable', 'date'],
             'end_time' => ['nullable', 'date'],
+            'full_sync' => ['nullable', 'boolean'],
         ]);
 
         $result = $this->bioTimeSyncService->sync(
             isset($validated['start_time']) ? Carbon::parse((string) $validated['start_time']) : null,
             isset($validated['end_time']) ? Carbon::parse((string) $validated['end_time']) : null,
+            (bool) ($validated['full_sync'] ?? false),
         );
 
         return response()->json([

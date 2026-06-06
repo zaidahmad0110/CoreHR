@@ -132,7 +132,7 @@ class HrAssistantService
 
         if ($this->containsAny($q, ['attendance', 'check in', 'check-in', 'check out', 'check-out'])) {
             return [
-                'answer' => "Attendance directly impacts payroll. Use accurate daily status (Present/Late/Absent/Overtime) and check-in/check-out times. Manual attendance can be created from the employee profile when needed.",
+                'answer' => "Attendance directly impacts payroll. Use accurate daily status (Present/Early/Late/Absent/Overtime) and check-in/check-out times. Manual attendance can be created from the employee profile when needed.",
                 'confidence' => 0.9,
                 'suggested_actions' => ['Open Attendance page', 'Open Employee profile attendance'],
                 'source' => 'fallback',
