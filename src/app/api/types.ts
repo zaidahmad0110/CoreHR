@@ -183,6 +183,9 @@ export interface EmployeeProfileData {
     from: string;
     to: string;
     days: number;
+    hours?: number | null;
+    request_unit?: "day" | "hour";
+    duration_label?: string;
     status: string;
   }>;
   documents: Array<{
@@ -375,6 +378,11 @@ export interface LeaveManagementData {
     from: string;
     to: string;
     days: number;
+    hours?: number | null;
+    request_unit?: "day" | "hour";
+    from_time?: string | null;
+    to_time?: string | null;
+    duration_label?: string;
     status: string;
     reason: string;
     sick_leave_photo_available?: boolean;

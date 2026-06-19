@@ -35,8 +35,11 @@ import { openBlobInNewTab } from "../utils/openInNewTab";
 export function LeaveManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [leaveType, setLeaveType] = useState("");
+  const [requestUnit, setRequestUnit] = useState<"day" | "hour">("day");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [fromTime, setFromTime] = useState("");
+  const [toTime, setToTime] = useState("");
   const [reason, setReason] = useState("");
   const [sickLeavePhoto, setSickLeavePhoto] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -77,8 +80,11 @@ export function LeaveManagement() {
 
   const resetForm = () => {
     setLeaveType("");
+    setRequestUnit("day");
     setFromDate("");
     setToDate("");
+    setFromTime("");
+    setToTime("");
     setReason("");
     setSickLeavePhoto(null);
     setFormError(null);
@@ -90,8 +96,18 @@ export function LeaveManagement() {
       return;
     }
 
-    if (!leaveType || !fromDate || !toDate) {
+    if (!leaveType || !fromDate || (requestUnit === "day" && !toDate)) {
       setFormError("Please fill in leave type and dates.");
+      return;
+    }
+
+    if (requestUnit === "hour" && (!fromTime || !toTime)) {
+      setFormError("Please fill in hourly leave from and to time.");
+      return;
+    }
+
+    if (requestUnit === "hour" && toTime <= fromTime) {
+      setFormError("To time must be after from time.");
       return;
     }
 
@@ -106,8 +122,11 @@ export function LeaveManagement() {
     try {
       await leaveService.createLeave({
         type: leaveType,
+        request_unit: requestUnit,
         from_date: fromDate,
-        to_date: toDate,
+        to_date: requestUnit === "day" ? toDate : undefined,
+        from_time: requestUnit === "hour" ? fromTime : undefined,
+        to_time: requestUnit === "hour" ? toTime : undefined,
         reason,
         sick_leave_photo: isSickLeaveSelected ? sickLeavePhoto ?? undefined : undefined,
       });
@@ -197,16 +216,47 @@ export function LeaveManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="from-date">From Date</Label>
-                  <Input id="from-date" type="date" className="mt-2" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                </div>
-                <div>
-                  <Label htmlFor="to-date">To Date</Label>
-                  <Input id="to-date" type="date" className="mt-2" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                </div>
+              <div>
+                <Label htmlFor="request-unit">Request Duration</Label>
+                <Select value={requestUnit} onValueChange={(value) => setRequestUnit(value as "day" | "hour")}>
+                  <SelectTrigger id="request-unit" className="mt-2">
+                    <SelectValue placeholder="Select request duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Full Day</SelectItem>
+                    <SelectItem value="hour">Hourly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              {requestUnit === "day" ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="from-date">From Date</Label>
+                    <Input id="from-date" type="date" className="mt-2" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label htmlFor="to-date">To Date</Label>
+                    <Input id="to-date" type="date" className="mt-2" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label htmlFor="hourly-date">Leave Date</Label>
+                    <Input id="hourly-date" type="date" className="mt-2" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="from-time">From Time</Label>
+                      <Input id="from-time" type="time" className="mt-2" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="to-time">To Time</Label>
+                      <Input id="to-time" type="time" className="mt-2" value={toTime} onChange={(e) => setToTime(e.target.value)} />
+                    </div>
+                  </div>
+                </>
+              )}
               <div>
                 <Label htmlFor="reason">Reason</Label>
                 <Textarea
@@ -315,7 +365,7 @@ export function LeaveManagement() {
                 <TableHead>Leave Type</TableHead>
                 <TableHead>From</TableHead>
                 <TableHead>To</TableHead>
-                <TableHead>Days</TableHead>
+                <TableHead>Duration</TableHead>
                 <TableHead>Reason</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -352,7 +402,9 @@ export function LeaveManagement() {
                     <TableCell className="text-gray-700">{request.type}</TableCell>
                     <TableCell className="text-gray-700">{request.from}</TableCell>
                     <TableCell className="text-gray-700">{request.to}</TableCell>
-                    <TableCell className="font-medium text-gray-900">{request.days}</TableCell>
+                    <TableCell className="font-medium text-gray-900">
+                      {request.duration_label ?? request.days}
+                    </TableCell>
                     <TableCell className="text-gray-600 max-w-xs truncate">
                       {request.reason}
                     </TableCell>

@@ -75,6 +75,11 @@ class LeaveService
                     'from' => $request->start_date?->format('M d, Y'),
                     'to' => $request->end_date?->format('M d, Y'),
                     'days' => $request->days,
+                    'hours' => $request->hours !== null ? (float) $request->hours : null,
+                    'request_unit' => (string) ($request->request_unit ?: 'day'),
+                    'from_time' => $request->start_time ? substr((string) $request->start_time, 0, 5) : null,
+                    'to_time' => $request->end_time ? substr((string) $request->end_time, 0, 5) : null,
+                    'duration_label' => $this->formatLeaveDuration($request),
                     'status' => $request->status,
                     'reason' => $request->reason,
                     'sick_leave_photo_available' => (bool) $request->sick_leave_photo_path,
@@ -111,7 +116,14 @@ class LeaveService
         }
 
         $from = Carbon::parse($payload['from_date']);
-        $to = Carbon::parse($payload['to_date']);
+        $requestUnit = strtolower(trim((string) ($payload['request_unit'] ?? 'day')));
+        $isHourly = $requestUnit === 'hour';
+        $to = $isHourly ? $from->copy() : Carbon::parse($payload['to_date']);
+        $startTime = $isHourly ? (string) ($payload['from_time'] ?? '') : null;
+        $endTime = $isHourly ? (string) ($payload['to_time'] ?? '') : null;
+        $hours = $isHourly
+            ? round(Carbon::parse($from->toDateString().' '.$startTime)->diffInMinutes(Carbon::parse($from->toDateString().' '.$endTime)) / 60, 2)
+            : null;
         $isSickLeave = str_contains(strtolower(trim((string) $payload['type'])), 'sick');
         $sickLeavePhotoPath = $isSickLeave && $sickLeavePhoto
             ? $sickLeavePhoto->store('sick-leave-photos', 'public')
@@ -120,9 +132,13 @@ class LeaveService
         $leaveRequest = LeaveRequest::create([
             'employee_id' => $employee->id,
             'type' => $payload['type'],
+            'request_unit' => $isHourly ? 'hour' : 'day',
             'start_date' => $from->toDateString(),
+            'start_time' => $startTime,
             'end_date' => $to->toDateString(),
-            'days' => $from->diffInDays($to) + 1,
+            'end_time' => $endTime,
+            'days' => $isHourly ? 0 : $from->diffInDays($to) + 1,
+            'hours' => $hours,
             'status' => 'Pending',
             'reason' => $payload['reason'] ?? null,
             'sick_leave_photo_path' => $sickLeavePhotoPath,
@@ -133,12 +149,12 @@ class LeaveService
             (int) $user->id,
             'Leave request pending approval',
             sprintf(
-                "Employee: %s\nRequest Type: %s\nPeriod: %s to %s\nDays: %d\nSick Leave Photo Attached: %s\n\nAction required: Please review this leave request.",
+                "Employee: %s\nRequest Type: %s\nPeriod: %s to %s\nDuration: %s\nSick Leave Photo Attached: %s\n\nAction required: Please review this leave request.",
                 $employee->name,
                 $leaveRequest->type,
                 $leaveRequest->start_date?->format('M d, Y') ?? '-',
                 $leaveRequest->end_date?->format('M d, Y') ?? '-',
-                (int) $leaveRequest->days,
+                $this->formatLeaveDuration($leaveRequest),
                 $sickLeavePhotoPath ? 'Yes' : 'No',
             ),
             'warning',
@@ -186,7 +202,7 @@ class LeaveService
         $leaveRequest->status = $status;
         $leaveRequest->save();
 
-        if ($oldStatus !== 'Approved' && $status === 'Approved') {
+        if ($oldStatus !== 'Approved' && $status === 'Approved' && (string) ($leaveRequest->request_unit ?: 'day') === 'day') {
             $balance = LeaveBalance::query()
                 ->where('employee_id', $leaveRequest->employee_id)
                 ->where('type', $leaveRequest->type)
@@ -206,13 +222,13 @@ class LeaveService
 
         $statusTitle = "Leave request {$status}";
         $statusBody = sprintf(
-            "Dear %s,\n\nYour %s leave request has been %s.\n\nRequest Period: %s to %s\nTotal Days: %d\nReviewed By: %s\n\nFor questions, please contact your manager or HR.",
+            "Dear %s,\n\nYour %s leave request has been %s.\n\nRequest Period: %s to %s\nDuration: %s\nReviewed By: %s\n\nFor questions, please contact your manager or HR.",
             $leaveRequest->employee?->name ?? 'Employee',
             $leaveRequest->type,
             strtolower($status),
             $leaveRequest->start_date?->format('M d, Y') ?? '-',
             $leaveRequest->end_date?->format('M d, Y') ?? '-',
-            (int) $leaveRequest->days,
+            $this->formatLeaveDuration($leaveRequest),
             $user->name,
         );
 
@@ -346,6 +362,26 @@ class LeaveService
             $balance->used = min((int) ($balance->used ?? 0), (int) $leaveType->annual_days);
             $balance->save();
         }
+    }
+
+    private function formatLeaveDuration(LeaveRequest $leaveRequest): string
+    {
+        if ((string) ($leaveRequest->request_unit ?: 'day') === 'hour') {
+            $hours = (float) ($leaveRequest->hours ?? 0);
+            $timeRange = $leaveRequest->start_time && $leaveRequest->end_time
+                ? sprintf(
+                    ' (%s - %s)',
+                    Carbon::parse((string) $leaveRequest->start_time)->format('g:i A'),
+                    Carbon::parse((string) $leaveRequest->end_time)->format('g:i A'),
+                )
+                : '';
+
+            return rtrim(rtrim(number_format($hours, 2), '0'), '.').' hour'.($hours === 1.0 ? '' : 's').$timeRange;
+        }
+
+        $days = (int) $leaveRequest->days;
+
+        return $days.' day'.($days === 1 ? '' : 's');
     }
 
     private function resolveConfiguredLeaveTypes(): Collection

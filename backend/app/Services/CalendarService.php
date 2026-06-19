@@ -104,17 +104,36 @@ class CalendarService
                 'type' => 'leave',
                 'title' => sprintf('%s - %s', $leave->employee?->name ?? 'Employee', $leave->type),
                 'description' => sprintf(
-                    '%s to %s (%d day%s) - %s',
+                    '%s to %s (%s) - %s',
                     $leave->start_date?->format('M d, Y') ?? '-',
                     $leave->end_date?->format('M d, Y') ?? '-',
-                    (int) $leave->days,
-                    (int) $leave->days === 1 ? '' : 's',
+                    $this->formatLeaveDuration($leave),
                     $leave->status,
                 ),
                 'date_iso' => $leave->start_date?->format('Y-m-d'),
                 'date' => $leave->start_date?->format('M d, Y'),
                 'badge' => $leave->status,
             ]);
+    }
+
+    private function formatLeaveDuration(LeaveRequest $leave): string
+    {
+        if ((string) ($leave->request_unit ?: 'day') === 'hour') {
+            $hours = (float) ($leave->hours ?? 0);
+            $timeRange = $leave->start_time && $leave->end_time
+                ? sprintf(
+                    ' (%s - %s)',
+                    Carbon::parse((string) $leave->start_time)->format('g:i A'),
+                    Carbon::parse((string) $leave->end_time)->format('g:i A'),
+                )
+                : '';
+
+            return rtrim(rtrim(number_format($hours, 2), '0'), '.').' hour'.($hours === 1.0 ? '' : 's').$timeRange;
+        }
+
+        $days = (int) $leave->days;
+
+        return $days.' day'.($days === 1 ? '' : 's');
     }
 
     /**
@@ -191,4 +210,3 @@ class CalendarService
             ->values();
     }
 }
-

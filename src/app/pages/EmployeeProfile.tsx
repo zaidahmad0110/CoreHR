@@ -1062,7 +1062,7 @@ export function EmployeeProfile() {
                     <TableHead>Type</TableHead>
                     <TableHead>From</TableHead>
                     <TableHead>To</TableHead>
-                    <TableHead>Days</TableHead>
+                    <TableHead>Duration</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1079,7 +1079,7 @@ export function EmployeeProfile() {
                       <TableCell className="font-medium">{leave.type}</TableCell>
                       <TableCell>{leave.from}</TableCell>
                       <TableCell>{leave.to}</TableCell>
-                      <TableCell>{leave.days}</TableCell>
+                      <TableCell>{leave.duration_label ?? leave.days}</TableCell>
                       <TableCell>
                         <Badge
                           className={

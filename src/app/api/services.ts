@@ -368,11 +368,23 @@ export const leaveService = {
   getLeaveData() {
     return apiRequest<LeaveManagementData>("/api/leaves");
   },
-  createLeave(payload: { type: string; from_date: string; to_date: string; reason: string; sick_leave_photo?: File }) {
+  createLeave(payload: {
+    type: string;
+    request_unit: "day" | "hour";
+    from_date: string;
+    to_date?: string;
+    from_time?: string;
+    to_time?: string;
+    reason: string;
+    sick_leave_photo?: File;
+  }) {
     const formData = new FormData();
     formData.append("type", payload.type);
+    formData.append("request_unit", payload.request_unit);
     formData.append("from_date", payload.from_date);
-    formData.append("to_date", payload.to_date);
+    if (payload.to_date) formData.append("to_date", payload.to_date);
+    if (payload.from_time) formData.append("from_time", payload.from_time);
+    if (payload.to_time) formData.append("to_time", payload.to_time);
     formData.append("reason", payload.reason);
     if (payload.sick_leave_photo) formData.append("sick_leave_photo", payload.sick_leave_photo);
 

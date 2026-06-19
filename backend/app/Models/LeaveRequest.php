@@ -10,9 +10,13 @@ class LeaveRequest extends Model
     protected $fillable = [
         'employee_id',
         'type',
+        'request_unit',
         'start_date',
+        'start_time',
         'end_date',
+        'end_time',
         'days',
+        'hours',
         'status',
         'reason',
         'sick_leave_photo_path',
@@ -23,6 +27,7 @@ class LeaveRequest extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'hours' => 'decimal:2',
         ];
     }
 
