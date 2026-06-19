@@ -50,6 +50,7 @@ export function LeaveManagement() {
   const { data, loading, error, refetch } = useApiQuery(() => leaveService.getLeaveData(), []);
   const leaveRequests = data?.requests ?? [];
   const leaveBalance = data?.balance ?? [];
+  const employeeLeaveBalances = data?.employee_balances ?? [];
   const leaveTypeOptions = data?.leave_types?.map((type) => type.name) ?? [];
   const isSickLeaveSelected = leaveType.toLowerCase().includes("sick");
 
@@ -462,6 +463,46 @@ export function LeaveManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      {employeeLeaveBalances.length > 0 && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle>Employee Leave Balances</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Leave Type</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Used</TableHead>
+                  <TableHead>Remaining</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {employeeLeaveBalances.flatMap((employeeBalance) =>
+                  employeeBalance.balances.map((balance, balanceIndex) => (
+                    <TableRow key={`${employeeBalance.employee_id}-${balance.type}`}>
+                      <TableCell className="font-medium text-gray-900">
+                        {balanceIndex === 0 ? employeeBalance.employee : ""}
+                      </TableCell>
+                      <TableCell className="text-gray-700">
+                        {balanceIndex === 0 ? employeeBalance.department : ""}
+                      </TableCell>
+                      <TableCell className="text-gray-700">{balance.type}</TableCell>
+                      <TableCell className="text-gray-700">{balance.total} days</TableCell>
+                      <TableCell className="text-gray-700">{balance.used} days</TableCell>
+                      <TableCell className="font-medium text-[#10B981]">{balance.remaining} days</TableCell>
+                    </TableRow>
+                  )),
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

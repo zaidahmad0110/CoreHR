@@ -395,6 +395,17 @@ export interface LeaveManagementData {
     used: number;
     remaining: number;
   }>;
+  employee_balances?: Array<{
+    employee_id: number;
+    employee: string;
+    department: string;
+    balances: Array<{
+      type: string;
+      total: number;
+      used: number;
+      remaining: number;
+    }>;
+  }>;
   leave_types?: Array<{
     id: number;
     name: string;

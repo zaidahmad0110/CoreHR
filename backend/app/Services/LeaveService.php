@@ -93,6 +93,7 @@ class LeaveService
                 ])
                 ->values(),
             'balance' => $balance,
+            'employee_balances' => $isGlobalApprover ? $this->listEmployeeLeaveBalances($leaveTypes) : [],
             'leave_types' => $leaveTypes
                 ->map(fn (LeaveType $type): array => [
                     'id' => (int) $type->id,
@@ -101,6 +102,40 @@ class LeaveService
                 ])
                 ->values(),
         ];
+    }
+
+    private function listEmployeeLeaveBalances(Collection $leaveTypes): array
+    {
+        return Employee::query()
+            ->with('department')
+            ->orderBy('name')
+            ->get()
+            ->map(function (Employee $employee) use ($leaveTypes): array {
+                $this->ensureLeaveBalances($employee, $leaveTypes);
+
+                $balances = LeaveBalance::query()
+                    ->where('employee_id', $employee->id)
+                    ->whereIn('type', $leaveTypes->pluck('name')->all())
+                    ->orderBy('type')
+                    ->get()
+                    ->map(fn (LeaveBalance $item): array => [
+                        'type' => $item->type,
+                        'total' => $item->total,
+                        'used' => $item->used,
+                        'remaining' => max($item->total - $item->used, 0),
+                    ])
+                    ->values()
+                    ->all();
+
+                return [
+                    'employee_id' => (int) $employee->id,
+                    'employee' => $employee->name,
+                    'department' => $employee->department?->name ?? 'N/A',
+                    'balances' => $balances,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function createForUser(User $user, array $payload, ?UploadedFile $sickLeavePhoto = null): LeaveRequest

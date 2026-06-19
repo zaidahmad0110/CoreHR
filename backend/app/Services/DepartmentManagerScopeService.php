@@ -44,6 +44,15 @@ class DepartmentManagerScopeService
             return true;
         }
 
+        $role = strtolower(trim((string) $user->role));
+        $jobTitle = strtolower(trim((string) $actorEmployee?->job_title));
+        if (
+            in_array($role, ['ceo', 'gm', 'general manager'], true)
+            || in_array($jobTitle, ['ceo', 'chief executive officer', 'gm', 'general manager'], true)
+        ) {
+            return true;
+        }
+
         return in_array(
             strtolower(trim((string) $actorEmployee?->department?->name)),
             ['human resources', 'hr'],
