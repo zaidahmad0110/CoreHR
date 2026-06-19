@@ -43,7 +43,7 @@ class AttendanceService
                     'department' => $record->employee?->department?->name ?? 'N/A',
                     'check_in' => $record->check_in ? Carbon::parse($record->check_in)->format('h:i A') : '-',
                     'check_out' => $record->check_out ? Carbon::parse($record->check_out)->format('h:i A') : '-',
-                    'work_hours' => $record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-',
+                    'work_hours' => $this->formatWorkMinutes($record->work_minutes),
                     'status' => $record->status,
                 ];
             })->values(),
@@ -94,7 +94,7 @@ class AttendanceService
                     'department' => $firstLog->employee?->department?->name ?? 'N/A',
                     'check_in' => $checkIn->format('h:i A'),
                     'check_out' => $checkOut?->format('h:i A') ?? '-',
-                    'work_hours' => $workMinutes ? round($workMinutes / 60, 1).'h' : '-',
+                    'work_hours' => $this->formatWorkMinutes($workMinutes),
                     'status' => $this->resolveStatus($checkIn, $workMinutes, $settings),
                 ];
             })
@@ -157,5 +157,17 @@ class AttendanceService
         }
 
         return '09:00:00';
+    }
+
+    private function formatWorkMinutes(?int $minutes): string
+    {
+        if ($minutes === null || $minutes <= 0) {
+            return '-';
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remainingMinutes = $minutes % 60;
+
+        return $hours.'h '.$remainingMinutes.'m';
     }
 }

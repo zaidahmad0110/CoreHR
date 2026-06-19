@@ -1082,8 +1082,20 @@ class EmployeeController extends Controller
             'break_out' => $record->break_out ? $record->break_out->format('h:i A') : '-',
             'break_duration' => $record->break_minutes ? $record->break_minutes.' Min' : '-',
             'status' => $showDailySummary ? $record->status : '',
-            'work_hours' => $showDailySummary ? ($record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-') : '',
+            'work_hours' => $showDailySummary ? $this->formatWorkMinutes($record->work_minutes) : '',
         ];
+    }
+
+    private function formatWorkMinutes(?int $minutes): string
+    {
+        if ($minutes === null || $minutes <= 0) {
+            return '-';
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remainingMinutes = $minutes % 60;
+
+        return $hours.'h '.$remainingMinutes.'m';
     }
 
     private function resolveManagerDisplayDetails(Employee $employee): array
