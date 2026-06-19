@@ -148,7 +148,7 @@ export async function apiFileRequest(path: string): Promise<ApiFileResponse> {
 
   const headers: Record<string, string> = {
     Accept:
-      "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,application/json",
+      "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,application/json",
   };
 
   if (token) {

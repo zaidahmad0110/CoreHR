@@ -10,6 +10,10 @@ use Illuminate\Support\Collection;
 
 class AttendanceService
 {
+    public function __construct(private readonly XlsxWriter $xlsxWriter)
+    {
+    }
+
     public function getByDate(Carbon $date): array
     {
         $settings = CompanySetting::query()->first();
@@ -47,6 +51,52 @@ class AttendanceService
                     'status' => $record->status,
                 ];
             })->values(),
+        ];
+    }
+
+    public function export(Carbon $fromDate, Carbon $toDate): array
+    {
+        if ($fromDate->greaterThan($toDate)) {
+            [$fromDate, $toDate] = [$toDate, $fromDate];
+        }
+
+        $rows = [[
+            'Date',
+            'Employee',
+            'Department',
+            'Check In',
+            'Check Out',
+            'Work Hours',
+            'Status',
+        ]];
+        $cursor = $fromDate->copy()->startOfDay();
+        $end = $toDate->copy()->startOfDay();
+
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $attendance = $this->getByDate($cursor);
+
+            foreach ($attendance['records'] as $record) {
+                $rows[] = [
+                    $attendance['date'],
+                    $record['employee'],
+                    $record['department'],
+                    $record['check_in'],
+                    $record['check_out'],
+                    $record['work_hours'],
+                    $record['status'],
+                ];
+            }
+
+            $cursor->addDay();
+        }
+
+        $dateLabel = $fromDate->isSameDay($toDate)
+            ? $fromDate->format('Y-m-d')
+            : $fromDate->format('Y-m-d').'-to-'.$toDate->format('Y-m-d');
+
+        return [
+            'contents' => $this->xlsxWriter->write($rows, 'Attendance'),
+            'filename' => 'attendance-'.$dateLabel.'.xlsx',
         ];
     }
 

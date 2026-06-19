@@ -3,6 +3,14 @@ import { Calendar as CalendarIcon, Download, Clock, UserCheck } from "lucide-rea
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import { Input } from "../components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import {
   Table,
   TableBody,
@@ -19,6 +27,11 @@ import { useApiQuery } from "../hooks/useApiQuery";
 
 export function Attendance() {
   const [date, setDate] = useState<Date>(new Date());
+  const [exportMode, setExportMode] = useState<"daily" | "range">("daily");
+  const [exportFromDate, setExportFromDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [exportToDate, setExportToDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const queryDate = useMemo(() => format(date, "yyyy-MM-dd"), [date]);
   const { data, loading, error, refetch } = useApiQuery(
@@ -34,49 +47,39 @@ export function Attendance() {
   };
   const attendanceRecords = data?.records ?? [];
 
-  const escapeCsvValue = (value: string | number) => {
-    const text = String(value).replace(/"/g, '""');
-    return `"${text}"`;
-  };
-
-  const handleExportReport = () => {
-    if (attendanceRecords.length === 0) {
-      return;
-    }
-
-    const header = [
-      "Date",
-      "Employee",
-      "Department",
-      "Check In",
-      "Check Out",
-      "Work Hours",
-      "Status",
-    ];
-    const rows = attendanceRecords.map((record) => [
-      format(date, "yyyy-MM-dd"),
-      record.employee,
-      record.department,
-      record.check_in,
-      record.check_out,
-      record.work_hours,
-      record.status,
-    ]);
-
-    const csv = [header, ...rows]
-      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = window.URL.createObjectURL(blob);
+  const downloadFile = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `attendance-${format(date, "yyyy-MM-dd")}.csv`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportReport = async () => {
+    setExporting(true);
+    setExportError(null);
+
+    try {
+      const selectedDate = format(date, "yyyy-MM-dd");
+      const response = await attendanceService.exportAttendance(
+        exportMode === "daily"
+          ? { mode: "daily", date: selectedDate }
+          : { mode: "range", from: exportFromDate, to: exportToDate },
+      );
+
+      downloadFile(
+        response.blob,
+        response.fileName ?? `attendance-${exportMode === "daily" ? selectedDate : `${exportFromDate}-to-${exportToDate}`}.xlsx`,
+      );
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Unable to export attendance report.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -114,14 +117,62 @@ export function Attendance() {
               <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} />
             </PopoverContent>
           </Popover>
-          <Button
-            className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
-            onClick={handleExportReport}
-            disabled={attendanceRecords.length === 0}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export Report
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white">
+                <Download className="w-4 h-4 mr-2" />
+                Export Report
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 space-y-4" align="end">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-900">Export Attendance</p>
+                <Select value={exportMode} onValueChange={(value) => setExportMode(value as "daily" | "range")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Export type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily export</SelectItem>
+                    <SelectItem value="range">From date to date</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {exportMode === "range" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-600" htmlFor="attendance-export-from">From</label>
+                    <Input
+                      id="attendance-export-from"
+                      type="date"
+                      value={exportFromDate}
+                      onChange={(event) => setExportFromDate(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-600" htmlFor="attendance-export-to">To</label>
+                    <Input
+                      id="attendance-export-to"
+                      type="date"
+                      value={exportToDate}
+                      onChange={(event) => setExportToDate(event.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {exportError && <p className="text-sm text-red-600">{exportError}</p>}
+
+              <Button
+                className="w-full bg-[#2563EB] hover:bg-[#1d4ed8] text-white"
+                onClick={() => void handleExportReport()}
+                disabled={exporting || (exportMode === "range" && (!exportFromDate || !exportToDate))}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exporting ? "Exporting..." : "Download .xlsx"}
+              </Button>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

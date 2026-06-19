@@ -72,7 +72,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::put('/organization-chart', [OrganizationController::class, 'updateOrganizationChart']);
     });
 
-    Route::get('/attendance', [AttendanceController::class, 'index'])->middleware('permission:attendance');
+    Route::middleware('permission:attendance')->group(function (): void {
+        Route::get('/attendance', [AttendanceController::class, 'index']);
+        Route::get('/attendance/export', [AttendanceController::class, 'export']);
+    });
 
     Route::middleware('permission:expenses')->group(function (): void {
         Route::get('/expenses', [ExpenseController::class, 'index']);

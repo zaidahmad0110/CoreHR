@@ -311,6 +311,9 @@ export const attendanceService = {
   getAttendance(date: string) {
     return apiRequest<AttendanceData>(`/api/attendance${toQueryString({ date })}`);
   },
+  exportAttendance(params: { mode: "daily" | "range"; date?: string; from?: string; to?: string }) {
+    return apiFileRequest(`/api/attendance/export${toQueryString(params)}`);
+  },
 };
 
 export const assetService = {
