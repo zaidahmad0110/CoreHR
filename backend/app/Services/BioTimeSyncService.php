@@ -55,7 +55,7 @@ class BioTimeSyncService
                 continue;
             }
 
-            $punchTime = Carbon::parse($punchTimeRaw);
+            $punchTime = $this->parseBioTimePunchTime($punchTimeRaw);
             $employee = $employeeMap[$empCode] ?? null;
 
             if (! $employee) {
@@ -74,7 +74,9 @@ class BioTimeSyncService
                     'verify_type' => isset($transaction['verify_type']) ? (int) $transaction['verify_type'] : null,
                     'terminal_sn' => isset($transaction['terminal_sn']) ? (string) $transaction['terminal_sn'] : null,
                     'terminal_alias' => isset($transaction['terminal_alias']) ? (string) $transaction['terminal_alias'] : null,
-                    'upload_time' => ! empty($transaction['upload_time']) ? Carbon::parse((string) $transaction['upload_time']) : null,
+                    'upload_time' => ! empty($transaction['upload_time'])
+                        ? Carbon::parse((string) $transaction['upload_time'], config('app.timezone'))
+                        : null,
                     'raw_payload' => $transaction,
                     'processed_at' => $employee ? now() : null,
                 ],
@@ -207,10 +209,10 @@ class BioTimeSyncService
             ->whereBetween('punch_time', [$startTime, $endTime])
             ->orderBy('punch_time')
             ->get()
-            ->groupBy(fn (BioTimePunchLog $log): string => $log->employee_id.'|'.$log->punch_time->toDateString())
+            ->groupBy(fn (BioTimePunchLog $log): string => $log->employee_id.'|'.$this->resolveLocalPunchTime($log)->toDateString())
             ->each(function (Collection $logs) use (&$updated): void {
                 $sortedLogs = $logs
-                    ->sortBy(fn (BioTimePunchLog $log): int => $log->punch_time->getTimestamp())
+                    ->sortBy(fn (BioTimePunchLog $log): int => $this->resolveLocalPunchTime($log)->getTimestamp())
                     ->values();
 
                 /** @var BioTimePunchLog $first */
@@ -218,8 +220,8 @@ class BioTimeSyncService
                 /** @var BioTimePunchLog $last */
                 $last = $sortedLogs->last();
 
-                $checkIn = $first->punch_time;
-                $checkOut = $sortedLogs->count() > 1 ? $last->punch_time : null;
+                $checkIn = $this->resolveLocalPunchTime($first);
+                $checkOut = $sortedLogs->count() > 1 ? $this->resolveLocalPunchTime($last) : null;
                 $breakPairs = $this->resolveBreakPairs($sortedLogs);
                 $breakMinutes = collect($breakPairs)->sum('minutes');
                 $workMinutes = $checkOut ? max($checkIn->diffInMinutes($checkOut) - $breakMinutes, 0) : null;
@@ -290,8 +292,8 @@ class BioTimeSyncService
             $breakInLog = $middlePunches->get($index);
             /** @var BioTimePunchLog|null $breakOutLog */
             $breakOutLog = $middlePunches->get($index + 1);
-            $breakIn = $breakInLog?->punch_time;
-            $breakOut = $breakOutLog?->punch_time;
+            $breakIn = $breakInLog ? $this->resolveLocalPunchTime($breakInLog) : null;
+            $breakOut = $breakOutLog ? $this->resolveLocalPunchTime($breakOutLog) : null;
 
             $pairs[] = [
                 'break_in' => $breakIn,
@@ -350,6 +352,22 @@ class BioTimeSyncService
         }
 
         return '09:00:00';
+    }
+
+    private function parseBioTimePunchTime(string $value): Carbon
+    {
+        return Carbon::parse(trim($value), config('app.timezone'));
+    }
+
+    private function resolveLocalPunchTime(BioTimePunchLog $log): Carbon
+    {
+        $rawPunchTime = $log->raw_payload['punch_time'] ?? null;
+
+        if (is_string($rawPunchTime) && trim($rawPunchTime) !== '') {
+            return $this->parseBioTimePunchTime($rawPunchTime);
+        }
+
+        return $log->punch_time->copy()->timezone(config('app.timezone'));
     }
 
     private function resolveExternalId(array $transaction, string $empCode, Carbon $punchTime): string
