@@ -74,7 +74,7 @@ class AttendanceService
             ->groupBy(fn (array $entry): string => (string) $entry['log']->employee_id);
 
         $records = $logs
-            ->map(function (Collection $employeeLogs): array {
+            ->map(function (Collection $employeeLogs) use ($settings): array {
                 $sortedLogs = $employeeLogs
                     ->sortBy(fn (array $entry): int => $entry['local_time']->getTimestamp())
                     ->values();
