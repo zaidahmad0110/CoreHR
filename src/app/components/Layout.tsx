@@ -37,7 +37,7 @@ const navigation = [
   { key: "layout.nav.loans", path: "/loans", icon: CreditCard, permission: "loans" },
   { key: "layout.nav.company_structure", path: "/company-structure", icon: Building2, permission: "company_structure" },
   { key: "layout.nav.settings", path: "/settings", icon: SettingsIcon, permission: "settings" },
-  { key: "layout.nav.user_privileges", path: "/user-privileges", icon: ShieldCheck, permission: "settings" },
+  { key: "layout.nav.user_privileges", path: "/user-privileges", icon: ShieldCheck, permission: "user_privileges" },
 ];
 
 const isAdminRole = (role?: string | null) => (role ?? "").trim().toLowerCase() === "admin";
@@ -57,10 +57,6 @@ export function Layout() {
   const shownBrowserNotificationsRef = useRef<Set<number>>(new Set());
 
   const visibleNavigation = navigation.filter((item) => {
-    if (item.path === "/user-privileges" && !isAdminRole(user?.role)) {
-      return false;
-    }
-
     return isAdminRole(user?.role) || Boolean(permissions?.[item.permission]);
   });
 

@@ -33,8 +33,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/two-factor', [AuthController::class, 'twoFactorStatus']);
     Route::patch('/auth/two-factor', [AuthController::class, 'updateTwoFactor']);
     Route::get('/privileges/me', [PrivilegeController::class, 'me']);
-    Route::get('/privileges/users', [PrivilegeController::class, 'index'])->middleware('permission:settings');
-    Route::patch('/privileges/users/{user}', [PrivilegeController::class, 'update'])->middleware('permission:settings');
+    Route::get('/privileges/users', [PrivilegeController::class, 'index'])->middleware('permission:user_privileges');
+    Route::patch('/privileges/users/{user}', [PrivilegeController::class, 'update'])->middleware('permission:user_privileges');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('permission:dashboard');
     Route::get('/calendar/events', [CalendarController::class, 'events'])->middleware('permission:dashboard');

@@ -50,6 +50,7 @@ const getFallbackRoute = (permissions?: Partial<UserPermissions>) => {
   if (permissions.training) return "/training";
   if (permissions.expenses) return "/expenses";
   if (permissions.loans) return "/loans";
+  if (permissions.user_privileges) return "/user-privileges";
 
   return null;
 };

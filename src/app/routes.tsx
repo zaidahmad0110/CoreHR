@@ -167,7 +167,7 @@ function SettingsPage() {
 
 function UserPrivilegesPage() {
   return (
-    <RequirePermission permission="settings">
+    <RequirePermission permission="user_privileges">
       <UserPrivileges />
     </RequirePermission>
   );

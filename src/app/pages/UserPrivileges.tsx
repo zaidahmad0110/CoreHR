@@ -29,6 +29,7 @@ const toLabel = (permission: string) =>
 export function UserPrivileges() {
   const { user } = useAuth();
   const isAdmin = (user?.role ?? "").toLowerCase() === "admin";
+  const canManagePrivileges = isAdmin || Boolean(user?.permissions?.user_privileges);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
   const [draftPermissions, setDraftPermissions] = useState<Partial<UserPermissions>>({});
@@ -39,7 +40,7 @@ export function UserPrivileges() {
   const { data, loading, error, refetch } = useApiQuery(
     () => privilegeService.getUserPrivileges(),
     [],
-    { skip: !isAdmin },
+    { skip: !canManagePrivileges },
   );
 
   const permissionKeys = useMemo(
@@ -71,11 +72,11 @@ export function UserPrivileges() {
     }
   };
 
-  if (!isAdmin) {
+  if (!canManagePrivileges) {
     return (
       <Card className="border-0 shadow-sm">
         <CardContent className="p-6 text-sm text-gray-600">
-          Only Admin can manage user privileges.
+          You are not authorized to manage user privileges.
         </CardContent>
       </Card>
     );

@@ -27,6 +27,7 @@ class UserPrivilegeService
         'loans',
         'company_structure',
         'settings',
+        'user_privileges',
     ];
 
     public function resolveForUser(User $user): array
@@ -141,7 +142,11 @@ class UserPrivilegeService
             return false;
         }
 
-        return strtolower(trim((string) $actor->role)) === 'admin';
+        if (strtolower(trim((string) $actor->role)) === 'admin') {
+            return true;
+        }
+
+        return (bool) ($this->resolveForUser($actor)['user_privileges'] ?? false);
     }
 
     private function getRoleDefaults(User $user): array
@@ -188,6 +193,7 @@ class UserPrivilegeService
                 'loans' => true,
                 'company_structure' => true,
                 'settings' => false,
+                'user_privileges' => false,
             ];
         }
 
@@ -206,6 +212,7 @@ class UserPrivilegeService
             'loans' => true,
             'company_structure' => true,
             'settings' => false,
+            'user_privileges' => false,
         ];
     }
 

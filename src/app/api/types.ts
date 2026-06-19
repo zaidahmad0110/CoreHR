@@ -50,6 +50,7 @@ export interface UserPermissions {
   loans: boolean;
   company_structure: boolean;
   settings: boolean;
+  user_privileges: boolean;
 }
 
 export type UserPermissionTerm = "accepted" | "rejected";
