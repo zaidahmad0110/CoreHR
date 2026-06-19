@@ -17,7 +17,6 @@ class AttendanceService
             ->orderBy('break_in')
             ->get();
         $uniqueDayRecords = $records->unique(fn (AttendanceRecord $record): string => (string) $record->employee_id);
-        $displayedSummaryKeys = [];
 
         return [
             'date' => $date->toDateString(),
@@ -27,22 +26,15 @@ class AttendanceService
                 'absent' => $uniqueDayRecords->where('status', 'Absent')->count(),
                 'overtime' => $uniqueDayRecords->where('status', 'Overtime')->count(),
             ],
-            'records' => $records->map(function (AttendanceRecord $record) use (&$displayedSummaryKeys): array {
-                $summaryKey = $record->employee_id.'|'.$record->date?->toDateString();
-                $showDailySummary = ! isset($displayedSummaryKeys[$summaryKey]);
-                $displayedSummaryKeys[$summaryKey] = true;
-
+            'records' => $uniqueDayRecords->map(function (AttendanceRecord $record): array {
                 return [
                     'id' => $record->id,
                     'employee' => $record->employee?->name ?? 'Unknown',
                     'department' => $record->employee?->department?->name ?? 'N/A',
-                    'check_in' => $showDailySummary ? ($record->check_in ? Carbon::parse($record->check_in)->format('h:i A') : '-') : '',
-                    'check_out' => $showDailySummary ? ($record->check_out ? Carbon::parse($record->check_out)->format('h:i A') : '-') : '',
-                    'break_in' => $record->break_in ? Carbon::parse($record->break_in)->format('h:i A') : '-',
-                    'break_out' => $record->break_out ? Carbon::parse($record->break_out)->format('h:i A') : '-',
-                    'break_duration' => $record->break_minutes ? $record->break_minutes.' Min' : '-',
-                    'work_hours' => $showDailySummary ? ($record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-') : '',
-                    'status' => $showDailySummary ? $record->status : '',
+                    'check_in' => $record->check_in ? Carbon::parse($record->check_in)->format('h:i A') : '-',
+                    'check_out' => $record->check_out ? Carbon::parse($record->check_out)->format('h:i A') : '-',
+                    'work_hours' => $record->work_minutes ? round($record->work_minutes / 60, 1).'h' : '-',
+                    'status' => $record->status,
                 ];
             })->values(),
         ];
