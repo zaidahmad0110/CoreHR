@@ -356,17 +356,24 @@ export function EmployeeList() {
     () => resolveEmployeeJobTitleOptions(formState.jobTitle),
     [formState.jobTitle],
   );
-  const supervisorOptions = useMemo(() => {
+  const coordinatorManagerOptions = useMemo(() => {
+    const validManagerRoles = new Set([
+      "supervisor",
+      "manager",
+      "department manager",
+      "gm",
+      "general manager",
+      "ceo",
+      "chief executive officer",
+    ]);
+
     return allEmployees
       .filter((employee) => {
         if (editingEmployeeId && employee.id === editingEmployeeId) {
           return false;
         }
 
-        if (employee.job_title.trim().toLowerCase() !== "supervisor") {
-          return false;
-        }
-        return true;
+        return validManagerRoles.has(employee.job_title.trim().toLowerCase());
       })
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [allEmployees, editingEmployeeId]);
@@ -993,22 +1000,22 @@ export function EmployeeList() {
                 </div>
                 {formState.jobTitle.trim().toLowerCase() === "coordinator" && (
                   <div>
-                    <Label htmlFor="emp-supervisor">Supervisor (manual optional)</Label>
+                    <Label htmlFor="emp-supervisor">Manager / Supervisor (manual optional)</Label>
                     <Select
                       value={formState.managerId || "none"}
                       onValueChange={(value) => updateForm("managerId", value === "none" ? "" : value)}
                       disabled={formMode === "edit" && !canEditExtendedEmployeeFields}
                     >
                       <SelectTrigger id="emp-supervisor" className="mt-2">
-                        <SelectValue placeholder="Auto-assign supervisor" />
+                        <SelectValue placeholder="Auto-assign manager" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Auto-assign supervisor</SelectItem>
-                        {supervisorOptions.map((supervisor) => (
-                        <SelectItem key={supervisor.id} value={String(supervisor.id)}>
-                            {supervisor.name} ({supervisor.department})
-                        </SelectItem>
-                      ))}
+                        <SelectItem value="none">Auto-assign manager</SelectItem>
+                        {coordinatorManagerOptions.map((manager) => (
+                          <SelectItem key={manager.id} value={String(manager.id)}>
+                            {manager.name} - {manager.job_title} ({manager.department})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

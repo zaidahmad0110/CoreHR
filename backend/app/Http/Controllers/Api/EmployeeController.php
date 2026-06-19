@@ -29,7 +29,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 
 class EmployeeController extends Controller
 {
@@ -1466,44 +1465,15 @@ class EmployeeController extends Controller
 
         if (
             $manualManagerId !== null
-            && $normalizedJobTitle !== 'coordinator'
             && $this->employeeMatchesAnyRole($manualManagerId, $parentRoles, $excludeEmployeeId)
         ) {
             return $manualManagerId;
         }
 
         if ($normalizedJobTitle === 'coordinator') {
-            if ($manualManagerId !== null) {
-                $manualSupervisorId = Employee::query()
-                    ->where('id', $manualManagerId)
-                    ->whereRaw('LOWER(job_title) = ?', ['supervisor'])
-                    ->when(
-                        $excludeEmployeeId !== null,
-                        fn ($query) => $query->where('id', '!=', $excludeEmployeeId),
-                    )
-                    ->value('id');
-
-                if (! $manualSupervisorId) {
-                    throw ValidationException::withMessages([
-                        'manager_id' => 'Selected supervisor is invalid. Please select a valid Supervisor.',
-                    ]);
-                }
-
-                return (int) $manualSupervisorId;
-            }
-
             if ($currentManagerId !== null) {
-                $currentSupervisorId = Employee::query()
-                    ->where('id', $currentManagerId)
-                    ->whereRaw('LOWER(job_title) = ?', ['supervisor'])
-                    ->when(
-                        $excludeEmployeeId !== null,
-                        fn ($query) => $query->where('id', '!=', $excludeEmployeeId),
-                    )
-                    ->value('id');
-
-                if ($currentSupervisorId) {
-                    return (int) $currentSupervisorId;
+                if ($this->employeeMatchesAnyRole($currentManagerId, $parentRoles, $excludeEmployeeId)) {
+                    return $currentManagerId;
                 }
             }
 
