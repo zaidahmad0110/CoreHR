@@ -86,14 +86,13 @@ class BioTimeSyncService
         }
 
         $updatedAttendance = $this->rebuildAttendanceFromPunches($startTime, $endTime);
-        $absentMarked = $this->markMissingTodayAsAbsent($startTime, $endTime);
         $settings->forceFill(['biotime_last_sync_at' => now()])->save();
 
         return [
             'fetched' => $transactions->count(),
             'imported' => $imported,
-            'attendance_updated' => $updatedAttendance + $absentMarked,
-            'absent_marked' => $absentMarked,
+            'attendance_updated' => $updatedAttendance,
+            'absent_marked' => 0,
             'unmatched_emp_codes' => array_values(array_keys($unmatchedCodes)),
             'start_time' => $startTime->toDateTimeString(),
             'end_time' => $endTime->toDateTimeString(),
@@ -319,38 +318,6 @@ class BioTimeSyncService
         }
 
         return 'Late';
-    }
-
-    private function markMissingTodayAsAbsent(Carbon $startTime, Carbon $endTime): int
-    {
-        $today = now()->toDateString();
-
-        if ($startTime->toDateString() > $today || $endTime->toDateString() < $today) {
-            return 0;
-        }
-
-        $existingEmployeeIds = AttendanceRecord::query()
-            ->whereDate('date', $today)
-            ->pluck('employee_id')
-            ->all();
-
-        $missingEmployeeIds = Employee::query()
-            ->where('status', 'Active')
-            ->whereNotIn('id', $existingEmployeeIds)
-            ->pluck('id');
-
-        foreach ($missingEmployeeIds as $employeeId) {
-            AttendanceRecord::query()->create([
-                'employee_id' => $employeeId,
-                'date' => $today,
-                'check_in' => null,
-                'check_out' => null,
-                'work_minutes' => null,
-                'status' => 'Absent',
-            ]);
-        }
-
-        return $missingEmployeeIds->count();
     }
 
     /**

@@ -3,15 +3,30 @@
 namespace App\Services;
 
 use App\Models\AttendanceRecord;
+use App\Models\BioTimePunchLog;
+use App\Models\CompanySetting;
 use Carbon\Carbon;
 
 class AttendanceService
 {
     public function getByDate(Carbon $date): array
     {
+        $settings = CompanySetting::query()->first();
+        $bioTimeEnabled = (bool) ($settings?->biotime_enabled ?? false);
+        $bioTimeEmployeeIds = $bioTimeEnabled
+            ? BioTimePunchLog::query()
+                ->whereNotNull('employee_id')
+                ->whereDate('punch_time', $date)
+                ->pluck('employee_id')
+                ->unique()
+                ->values()
+                ->all()
+            : null;
+
         $records = AttendanceRecord::query()
             ->with(['employee.department'])
             ->whereDate('date', $date)
+            ->when($bioTimeEmployeeIds !== null, fn ($query) => $query->whereIn('employee_id', $bioTimeEmployeeIds))
             ->orderBy('employee_id')
             ->orderByRaw('break_in IS NULL DESC')
             ->orderBy('break_in')

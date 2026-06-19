@@ -18,11 +18,10 @@ Artisan::command('payroll:generate-monthly', function (PayrollService $payrollSe
 Artisan::command('attendance:sync-biotime {--full : Import all historical BioTime transactions}', function (BioTimeSyncService $bioTimeSyncService) {
     $result = $bioTimeSyncService->sync(fullSync: (bool) $this->option('full'));
     $this->info(sprintf(
-        'BioTime sync completed. Fetched: %d, imported: %d, attendance updated: %d, absent marked: %d.',
+        'BioTime sync completed. Fetched: %d, imported: %d, attendance updated: %d.',
         $result['fetched'],
         $result['imported'],
         $result['attendance_updated'],
-        $result['absent_marked'] ?? 0,
     ));
 })->purpose('Import attendance punches from BioTime into CoreHR.');
 

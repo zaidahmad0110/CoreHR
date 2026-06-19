@@ -388,7 +388,7 @@ export function Settings() {
       const syncScope = fullSync ? " Historical sync" : "";
 
       window.alert(
-        `BioTime sync completed.${syncScope} Fetched ${result.fetched}, imported ${result.imported}, updated ${result.attendance_updated} attendance records, marked ${result.absent_marked} absent today.${unmatched}`,
+        `BioTime sync completed.${syncScope} Fetched ${result.fetched}, imported ${result.imported}, updated ${result.attendance_updated} attendance records.${unmatched}`,
       );
     });
     setBioTimeSyncing(false);
