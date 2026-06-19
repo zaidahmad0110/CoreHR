@@ -946,7 +946,7 @@ export function Settings() {
               </div>
 
               <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                BioTime uses the first punch as check-in and the last punch as check-out. Before start time is Early, exactly on start time is Present, and after start time is Late.
+                BioTime uses the first punch as check-in and the last punch as check-out. Employees who work the full-day minutes are Present; otherwise before start time is Early, exactly on start time is Present, and after start time is Late.
               </div>
 
               <div className="flex justify-end pt-2">

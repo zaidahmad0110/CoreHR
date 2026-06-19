@@ -95,7 +95,7 @@ class AttendanceService
                     'check_in' => $checkIn->format('h:i A'),
                     'check_out' => $checkOut?->format('h:i A') ?? '-',
                     'work_hours' => $workMinutes ? round($workMinutes / 60, 1).'h' : '-',
-                    'status' => $this->resolveStatus($checkIn, $settings),
+                    'status' => $this->resolveStatus($checkIn, $workMinutes, $settings),
                 ];
             })
             ->values();
@@ -123,10 +123,15 @@ class AttendanceService
         return $log->punch_time->copy()->timezone(config('app.timezone'));
     }
 
-    private function resolveStatus(Carbon $checkIn, ?CompanySetting $settings): string
+    private function resolveStatus(Carbon $checkIn, ?int $workMinutes, ?CompanySetting $settings): string
     {
         $startTime = $this->normalizeWorkTime((string) ($settings?->work_start_time ?? '09:00:00'));
+        $fullDayMinutes = max((int) ($settings?->work_full_day_minutes ?? 540), 1);
         $checkInTime = $checkIn->format('H:i:s');
+
+        if ($workMinutes !== null && $workMinutes >= $fullDayMinutes) {
+            return 'Present';
+        }
 
         if ($checkInTime < $startTime) {
             return 'Early';

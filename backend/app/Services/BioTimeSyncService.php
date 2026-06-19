@@ -311,6 +311,10 @@ class BioTimeSyncService
     {
         $settings = $this->resolveWorkHourSettings();
 
+        if ($workMinutes !== null && $workMinutes >= $settings['full_day_minutes']) {
+            return 'Present';
+        }
+
         if ($checkIn->format('H:i:s') < $settings['start_time']) {
             return 'Early';
         }
